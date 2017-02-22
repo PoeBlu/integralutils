@@ -12,8 +12,8 @@ class MultiOrderedDict(OrderedDict):
 
 class JsonConfigParser():
     def __init__(self, config_path, json_path):
-        self.__config = configparser.ConfigParser(dict_type=MultiOrderedDict, interpolation=None, empty_lines_in_values=False, allow_no_value=False, strict=False)
-        self.__config.read([config_path])
+        self._config = configparser.ConfigParser(dict_type=MultiOrderedDict, interpolation=None, empty_lines_in_values=False, allow_no_value=False, strict=False)
+        self._config.read([config_path])
 
         with open(json_path) as j:
             self.__json = json.load(j)
@@ -22,7 +22,7 @@ class JsonConfigParser():
         self.__parsed = dict()
         
         # Loop over each key within the section.
-        for property in self.__config.items(section_name):
+        for property in self._config.items(section_name):
             # Set each property to a blank list.
             if property[0] not in self.__parsed:
                 self.__parsed[property[0]] = []
@@ -39,7 +39,7 @@ class JsonConfigParser():
                     # trailing comma, the code would assume it is not a JSON path but
                     # rather a normal string value.
                     value_list = [x for x in value_list if x]
-                    result = self.__safe_parse(self.__json, value_list)
+                    result = self._safe_parse(self.__json, value_list)
                     if result:
                         self.__parsed[property[0]].append(result)
                 else:
@@ -55,7 +55,7 @@ class JsonConfigParser():
         else:
             return results
 
-    def __safe_parse(self, json_dict, json_keys, error=None):
+    def _safe_parse(self, json_dict, json_keys, error=None):
         for key in json_keys:
             try:
                 json_dict = json_dict[key]

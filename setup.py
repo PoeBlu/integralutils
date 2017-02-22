@@ -11,9 +11,10 @@ setup(name='integralutils',
       long_description=open('README.md').read(),
       include_package_data=True,
       install_requires=[
-            'python-magic'
+            'beautifulsoup4',
+            'python-dateutil'
       ],
       package_data = {
-            'integralutils': ['whitelists/*.ini']    
+            'integralutils': ['etc/*']
       }
 )
