@@ -6,6 +6,8 @@ Class that intelligently parses e-mails (raw email/rfc822 files or text). Key fe
 
 *Parses common header fields like from, to, subject, message-id, etc.*
 
+*Extracts "visible text" from HTML e-mail body to help with span/div obfuscated HTML*
+
 *Extracts URLs from the e-mail text and HTML bodies*
 
 *Extracts URLs from any e-mail attachments*
