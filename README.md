@@ -5,9 +5,13 @@ Miscellaneous helper classes and utilities used in our other programs.
 Class that intelligently parses e-mails (raw email/rfc822 files or text). Key features:
 
 *Parses common header fields like from, to, subject, message-id, etc.*
+
 *Extracts URLs from the e-mail text and HTML bodies*
+
 *Extracts URLs from any e-mail attachments*
+
 *Parses e-mail attachments to get MD5/SHA256 hashes, filename, etc.*
+
 *Optionally decodes and writes any attachments to a folder of your choice on disk*
 
 ## SandboxParser
