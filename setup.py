@@ -12,7 +12,8 @@ setup(name='integralutils',
       include_package_data=True,
       install_requires=[
             'beautifulsoup4',
-            'python-dateutil'
+            'python-dateutil',
+            'requests'
       ],
       package_data = {
             'integralutils': ['etc/*']
