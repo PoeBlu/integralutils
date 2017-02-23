@@ -218,69 +218,64 @@ class EmailParser():
 
     # Adapted from: https://www.ianlewis.org/en/parsing-email-attachments-python
     def _parse_attachment(self, message_part, charset):
-        content_disposition = message_part.get("Content-Disposition", None)
-        if content_disposition:
-            dispositions = content_disposition.strip().split(";")
-            if bool(content_disposition and dispositions[0].lower() == "attachment"):
-                file_data = message_part.get_payload()
-                
-                attachment_dict = {}
-                if message_part.get("Content-Transfer-Encoding", None) == "base64":
-                    file_data_b64 = file_data.replace("\n", "")
-                    # For some reason, sometimes the attachments don't have the proper
-                    # padding. Add a couple "==" on the end for good measure. This doesn't
-                    # seem to harm correctly encoded attachments.
-                    file_data_decoded = base64.b64decode(file_data_b64 + "==")
-                    
-                    # Try and get strings out of the attachment.
-                    strings_list = RegexHelpers.find_strings(file_data_decoded)
-                    strings = " ".join(strings_list)
-                    
-                    # Look for any URLs that were in the strings.
-                    strings_urls = RegexHelpers.find_urls(strings)
-                    attachment_dict["strings_urls"] = strings_urls
-                    
-                elif message_part.get_content_type() == "text/html":
-                    file_data_decoded = message_part.get_payload(decode=True).decode(charset).encode('utf-8')
-                else:
-                    file_data_decoded = file_data
-                    
-                md5_hasher = hashlib.md5()
-                md5_hasher.update(file_data_decoded)
-                md5_hash = md5_hasher.hexdigest()
-                
-                sha256_hasher = hashlib.sha256()
-                sha256_hasher.update(file_data_decoded)
-                sha256_hash = sha256_hasher.hexdigest()
+        part_items = message_part.items()
+        for tup in part_items:
+            for value in tup:
+                if "attachment" in value:
+                    file_data = message_part.get_payload()
 
-                attachment_dict["data"] = file_data_decoded
-                attachment_dict["content_type"] = message_part.get_content_type()
-                attachment_dict["size"] = len(file_data_decoded)
-                attachment_dict["md5"] = md5_hash
-                attachment_dict["sha256"] = sha256_hash
-                attachment_dict["name"] = None
-                attachment_dict["create_date"] = None
-                attachment_dict["mod_date"] = None
-                attachment_dict["read_date"] = None
-                
-                for param in dispositions[1:]:
-                    # Only split 1 time in case the filename has an "=" in it.
-                    name,value = param.split("=", 1)
-                    name = name.lower().strip()
+                    attachment_dict = {}
+                    if message_part.get("Content-Transfer-Encoding", None) == "base64":
+                        file_data_b64 = file_data.replace("\n", "")
+                        # For some reason, sometimes the attachments don't have the proper
+                        # padding. Add a couple "==" on the end for good measure. This doesn't
+                        # seem to harm correctly encoded attachments.
+                        file_data_decoded = base64.b64decode(file_data_b64 + "==")
 
-                    if name == "filename":
-                        attachment_dict["name"] = "".join(value.splitlines()).replace("\"", "")
-                        value = value.replace("\"", "")
-                        attachment_dict["name"] = RegexHelpers.decode_utf_b64_string(value)
+                        # Try and get strings out of the attachment.
+                        strings_list = RegexHelpers.find_strings(file_data_decoded)
+                        strings = " ".join(strings_list)
 
-                    elif name == "create-date":
-                        attachment_dict["create_date"] = value  #TODO: datetime
-                    elif name == "modification-date":
-                        attachment_dict["mod_date"] = value #TODO: datetime
-                    elif name == "read-date":
-                        attachment_dict["read_date"] = value #TODO: datetime
+                        # Look for any URLs that were in the strings.
+                        strings_urls = RegexHelpers.find_urls(strings)
+                        attachment_dict["strings_urls"] = strings_urls
 
-                return attachment_dict
+                    elif message_part.get_content_type() == "text/html":
+                        file_data_decoded = message_part.get_payload(decode=True).decode(charset).encode('utf-8')
+                    else:
+                        file_data_decoded = file_data
+
+                    md5_hasher = hashlib.md5()
+                    md5_hasher.update(file_data_decoded)
+                    md5_hash = md5_hasher.hexdigest()
+
+                    sha256_hasher = hashlib.sha256()
+                    sha256_hasher.update(file_data_decoded)
+                    sha256_hash = sha256_hasher.hexdigest()
+
+                    attachment_dict["data"] = file_data_decoded
+                    attachment_dict["content_type"] = message_part.get_content_type()
+                    attachment_dict["size"] = len(file_data_decoded)
+                    attachment_dict["md5"] = md5_hash
+                    attachment_dict["sha256"] = sha256_hash
+                    attachment_dict["name"] = ""
+                    attachment_dict["create_date"] = None
+                    attachment_dict["mod_date"] = None
+                    attachment_dict["read_date"] = None
+
+                    # Find the attachment name. Normally this follows a specific format
+                    # and is called 'filename=' but recently I've seen some that are in
+                    # different locations are are just called 'name='... Hence removing
+                    # old code and replacing with a regex statement to account for either
+                    # name in any location in the message part.
+                    attachment_name_pattern = re.compile(r'(file)?name="(.*?)"')
+                    for tup in part_items:
+                        for item in tup:
+                            attachment_name = attachment_name_pattern.search(item)
+                            if attachment_name:
+                                attachment_dict["name"] = RegexHelpers.decode_utf_b64_string(attachment_name.groups()[1])
+
+                    return attachment_dict
 
         return None
     
