@@ -75,6 +75,7 @@ class EmailParser():
         # Now that we have the e-mail object, parse out some of the interesting parts.
         self.urls = set()
         self.headers = self._get_all_headers_string()
+        self.received = self.get_header("received")
         
         try: self.subject = "".join(self.get_header("subject")[0].splitlines())
         except IndexError: self.subject = ""
