@@ -1,8 +1,25 @@
 # integralutils
 Miscellaneous helper classes and utilities used in our other programs.
 
+## Indicator
+Class that models CRITS indicators. Instances of this class can contain an indicator value, tags, relationships, etc.
+
+Other features include:
+
+*Generate a list of Indicator objects from a list of URLs.
+
+*Write a list of Indicator objects to a CSV file for easier importing into CRITS.
+
+*Read an existing CSV file and parse it into Indicator objects.
+
+*Append a list of Indicator objects to an existing CSV file.
+
+*Accept a list of Indicator objects and merge duplicates, thus merging their tags and relationships.
+
 ## EmailParser
 Class that intelligently parses e-mails (raw email/rfc822 files or text). Key features:
+
+*Generates CRITS-style indicators from various header fields and attachment characteristics.
 
 *Parses common header fields like from, to, subject, message-id, etc.*
 
