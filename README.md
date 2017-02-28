@@ -6,32 +6,32 @@ Class that models CRITS indicators. Instances of this class can contain an indic
 
 Other features include:
 
-*Generate a list of Indicator objects from a list of URLs.
+*Generate a list of Indicator objects from a list of URLs.*
 
-*Write a list of Indicator objects to a CSV file for easier importing into CRITS.
+*Write a list of Indicator objects to a CSV file for easier importing into CRITS.*
 
-*Read an existing CSV file and parse it into Indicator objects.
+*Read an existing CSV file and parse it into Indicator objects.*
 
-*Append a list of Indicator objects to an existing CSV file.
+*Append a list of Indicator objects to an existing CSV file.*
 
-*Accept a list of Indicator objects and merge duplicates, thus merging their tags and relationships.
+*Accept a list of Indicator objects and merge duplicates, thus merging their tags and relationships.*
 
 ## EmailParser
 Class that intelligently parses e-mails (raw email/rfc822 files or text). Key features:
 
-*Generates CRITS-style indicators from various header fields and attachment characteristics.
+*Generates CRITS-style indicators from various header fields and attachment characteristics.*
 
 *Parses common header fields like from, to, subject, message-id, etc.*
 
-*Extracts "visible text" from HTML e-mail body to help with span/div obfuscated HTML*
+*Extracts "visible text" from HTML e-mail body to help with span/div obfuscated HTML.*
 
-*Extracts URLs from the e-mail text and HTML bodies*
+*Extracts URLs from the e-mail text and HTML bodies.*
 
-*Extracts URLs from any e-mail attachments*
+*Extracts URLs from any e-mail attachments.*
 
 *Parses e-mail attachments to get MD5/SHA256 hashes, filename, etc.*
 
-*Optionally decodes and writes any attachments to a folder of your choice on disk*
+*Optionally decodes and writes any attachments to a folder of your choice on disk.*
 
 ## SandboxParser
 Class that parses several different sandbox JSON reports into a consistent format.
