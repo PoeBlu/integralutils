@@ -9,6 +9,7 @@ from dateutil import tz
 from dateutil.tz import tzlocal
 import datetime
 from bs4 import BeautifulSoup
+import quopri
 
 from integralutils import RegexHelpers
 from integralutils import Indicator
@@ -81,8 +82,13 @@ class EmailParser():
         while not smtp_stream[0].startswith("Received:"):
             smtp_stream.pop(0)
 
-        # Parse out the email object.
+        # Join the header lines into a single string.
         email_text = "\n".join(smtp_stream)
+        
+        # In case the headers are QP-encoded, decode them.
+        email_text = quopri.decodestring(email_text).decode("utf-8")
+        
+        # Create the e-mail object.
         self._email_obj = email.message_from_string(email_text)
         
         # Parse the e-mail object for its content.
