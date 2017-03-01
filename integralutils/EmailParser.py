@@ -86,7 +86,7 @@ class EmailParser():
         email_text = "\n".join(smtp_stream)
         
         # In case the headers are QP-encoded, decode them.
-        email_text = quopri.decodestring(email_text).decode("utf-8")
+        email_text = quopri.decodestring(email_text).decode("utf-8", "ignore")
         
         # Create the e-mail object.
         self._email_obj = email.message_from_string(email_text)
