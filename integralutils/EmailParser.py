@@ -170,29 +170,32 @@ class EmailParser():
         # Make an Indicator for each to address.
         self.to_list = [x[1] for x in self._get_address_list("to")]
         for address in self.to_list:
-            ind = Indicator.Indicator(address, "Email - Address")
-            ind.add_tags(["phish", "to_address"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            if address:
+                ind = Indicator.Indicator(address, "Email - Address")
+                ind.add_tags(["phish", "to_address"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
             
         # Make an Indicator for each CC address.
         self.cc_list = [x[1] for x in self._get_address_list("cc")]
         for address in self.cc_list:
-            ind = Indicator.Indicator(address, "Email - Address")
-            ind.add_tags(["phish", "cc_address"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            if address:
+                ind = Indicator.Indicator(address, "Email - Address")
+                ind.add_tags(["phish", "cc_address"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
         
         # Make an Indicator for each BCC address.
         self.bcc_list = [x[1] for x in self._get_address_list("bcc")]
         for address in self.bcc_list:
-            ind = Indicator.Indicator(address, "Email - Address")
-            ind.add_tags(["phish", "bcc_address"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            if address:
+                ind = Indicator.Indicator(address, "Email - Address")
+                ind.add_tags(["phish", "bcc_address"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
 
         # Make an Indicator for the message ID.
         try:
