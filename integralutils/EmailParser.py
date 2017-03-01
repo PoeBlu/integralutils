@@ -235,7 +235,7 @@ class EmailParser():
             ip = RegexHelpers.find_ip_addresses(x_originating_ip)
             if ip:
                 self.x_originating_ip = ip[0]
-                ind = Indicator.Indicator(ip, "Address - ipv4-addr")
+                ind = Indicator.Indicator(self.x_originating_ip, "Address - ipv4-addr")
                 ind.add_tags(["phish", "x-originating-ip"])
                 if self.from_address:
                     ind.add_relationships(self.from_address)
@@ -251,7 +251,7 @@ class EmailParser():
             ip = RegexHelpers.find_ip_addresses(x_sender_ip)
             if ip:
                 self.x_sender_ip = ip[0]
-                ind = Indicator.Indicator(ip, "Address - ipv4-addr")
+                ind = Indicator.Indicator(self.x_sender_ip, "Address - ipv4-addr")
                 ind.add_tags(["phish", "x-sender-ip"])
                 if self.from_address:
                     ind.add_relationships(self.from_address)
