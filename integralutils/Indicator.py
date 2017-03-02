@@ -14,7 +14,7 @@ class Indicator:
 
     def __init__(self, indicator, type):
         if not isinstance(indicator, str):
-            raise TypeError("indicator must be a string")
+            raise ValueError("indicator must be a string")
         if not indicator:
             raise ValueError("indicator cannot be a blank string")
         
@@ -63,7 +63,7 @@ class Indicator:
         elif isinstance(tags, list) or isinstance(tags, set):
             self._tags.update(tags)
         else:
-            raise TypeError("add_tags requires a string or a list of strings")
+            raise ValueError("add_tags requires a string or a list of strings")
             
     def add_relationships(self, relationships):
         # If we're adding a single relationship (a string), add it
@@ -73,7 +73,7 @@ class Indicator:
             
         # Make sure we're dealing with a list.
         if not isinstance(relationships, list):
-            raise TypeError("add_relationships requires a string or a list of strings")
+            raise ValueError("add_relationships requires a string or a list of strings")
         
         # Make sure that each relationship in the list is a string.
         if all(isinstance(rel, str) for rel in relationships):
@@ -82,7 +82,7 @@ class Indicator:
                 if rel != self.indicator:
                     self._relationships.add(rel)
         else:
-            raise TypeError("each relationship needs to be a string")
+            raise ValueError("each relationship needs to be a string")
 
     def csv_line(self):
         # Convert the set of tags to a string.
@@ -196,14 +196,14 @@ def get_indicators_with_tag(tag, indicator_list):
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):
         return [indicator for indicator in indicator_list if tag in indicator.tags]
     else:
-        raise TypeError("get_indicators_with_tag requires a list of Indicator objects")
+        raise ValueError("get_indicators_with_tag requires a list of Indicator objects")
 
 def get_indicators_with_value(value, indicator_list):
     # Make sure we are dealing with a list of Indicator objects.
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):
         return [indicator for indicator in indicator_list if value in indicator.indicator]
     else:
-        raise TypeError("get_indicators_with_value requires a list of Indicator objects")
+        raise ValueError("get_indicators_with_value requires a list of Indicator objects")
 
 def get_unique_relationships(indicator_list):
     # Make sure we are dealing with a list of Indicator objects.
@@ -220,7 +220,7 @@ def get_unique_relationships(indicator_list):
                     working_list.append(rel)
         return working_list
     else:
-        raise TypeError("get_unique_relationships requires a list of Indicator objects")
+        raise ValueError("get_unique_relationships requires a list of Indicator objects")
 
 def merge_duplicate_relationships(rel_a, rel_b):
     working_list = []
@@ -249,7 +249,7 @@ def merge_duplicate_indicators(indicator_list):
                 working_list.append(indicator)
         return working_list
     else:
-        raise TypeError("merge_duplicate_indicators requires a list of Indicator objects")
+        raise ValueError("merge_duplicate_indicators requires a list of Indicator objects")
         
 def generate_url_indicators(url_list):
     indicators = []
@@ -271,19 +271,28 @@ def generate_url_indicators(url_list):
             netloc_type = "URI - Domain Name"
             
         # Make an Indicator for the URI host.
-        ind = Indicator(parsed_url.netloc, netloc_type)
-        ind.add_tags("uri_host")
-        ind.add_relationships(url)
-        indicators.append(ind)
+        try:
+            ind = Indicator(parsed_url.netloc, netloc_type)
+            ind.add_tags("uri_host")
+            ind.add_relationships(url)
+            indicators.append(ind)
+        except ValueError:
+            pass
 
         # Make an Indicator for the full URL.
-        indicators.append(Indicator(url, "URI - URL"))
+        try:
+            indicators.append(Indicator(url, "URI - URL"))
+        except ValueError:
+            pass
 
         # Make an Indicator for the path (if there is one).
         if parsed_url.path and parsed_url.path != "/":
-            ind = Indicator(parsed_url.path, "URI - Path")
-            ind.add_tags(["uri_path", parsed_url.netloc])
-            ind.add_relationships([url, parsed_url.netloc])
-            indicators.append(ind)
+            try:
+                ind = Indicator(parsed_url.path, "URI - Path")
+                ind.add_tags(["uri_path", parsed_url.netloc])
+                ind.add_relationships([url, parsed_url.netloc])
+                indicators.append(ind)
+            except ValueError:
+                pass
 
     return indicators

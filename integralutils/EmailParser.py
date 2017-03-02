@@ -49,18 +49,24 @@ class EmailParser():
                 try:
                     # Make an Indicator for the address.
                     self.envelope_from = envelope_address_pattern.match(line).group(1)
-                    ind = Indicator.Indicator(self.envelope_from, "Email - Address")
-                    ind.add_tags(["phish", "envelope_from_address"])
-                    self.iocs.append(ind)
+                    try:
+                        ind = Indicator.Indicator(self.envelope_from, "Email - Address")
+                        ind.add_tags(["phish", "envelope_from_address"])
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
                 except AttributeError:
                     self.envelope_from = ""
             if line.startswith("RCPT TO:"):
                 try:
                     # Make an Indicator for the address.
                     self.envelope_to = envelope_address_pattern.match(line).group(1)
-                    ind = Indicator.Indicator(self.envelope_from, "Email - Address")
-                    ind.add_tags(["phish", "envelope_to_address"])
-                    self.iocs.append(ind)
+                    try:
+                        ind = Indicator.Indicator(self.envelope_from, "Email - Address")
+                        ind.add_tags(["phish", "envelope_to_address"])
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
                 except AttributeError:
                     self.envelope_to = ""
                     
@@ -103,15 +109,21 @@ class EmailParser():
         self.received = self.get_header("received")
         for hop in self.received:
             for ip in RegexHelpers.find_ip_addresses(hop):
-                ind = Indicator.Indicator(ip, "Address - ipv4-addr")
-                ind.add_tags(["phish", "smtp_relay"])
-                self.iocs.append(ind)
+                try:
+                    ind = Indicator.Indicator(ip, "Address - ipv4-addr")
+                    ind.add_tags(["phish", "smtp_relay"])
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
 
             for domain in RegexHelpers.find_domains(hop):
                 if isinstance(domain, tuple):
-                    ind = Indicator.Indicator(domain[0], "URI - Domain Name")
-                    ind.add_tags(["phish", "smtp_relay"])
-                    self.iocs.append(ind)
+                    try:
+                        ind = Indicator.Indicator(domain[0], "URI - Domain Name")
+                        ind.add_tags(["phish", "smtp_relay"])
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
 
         # Get the e-mail's plaintext body, HTML body, and the visible text from the HTML.
         self.body = parsed_email["body"]
@@ -128,105 +140,132 @@ class EmailParser():
         # Make an Indicator for the from address.
         try:
             self.from_address = self._get_address_list("from")[0][1]
-            ind = Indicator.Indicator(self.from_address, "Email - Address")
-            ind.add_tags(["phish", "from_address"])
-            self.iocs.append(ind)
+            try:
+                ind = Indicator.Indicator(self.from_address, "Email - Address")
+                ind.add_tags(["phish", "from_address"])
+                self.iocs.append(ind)
+            except ValueError:
+                pass
         except IndexError:
             self.from_address = ""
             
         # Make an Indicator for the reply-to address.
         try:
             self.replyto = self._get_address_list("reply-to")[0][1]
-            ind = Indicator.Indicator(self.replyto, "Email - Address")
-            ind.add_tags(["phish", "replyto_address"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            try:
+                ind = Indicator.Indicator(self.replyto, "Email - Address")
+                ind.add_tags(["phish", "replyto_address"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
+            except ValueError:
+                pass
         except IndexError:
             self.replyto = ""
             
         # Make an Indicator for the subject.
         try:
             self.subject = "".join(self.get_header("subject")[0].splitlines())
-            ind = Indicator.Indicator(self.subject, "Email - Subject")
-            ind.add_tags(["phish", "subject"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            try:
+                ind = Indicator.Indicator(self.subject, "Email - Subject")
+                ind.add_tags(["phish", "subject"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
+            except ValueError:
+                pass
         except IndexError:
             self.subject = ""
             
         # Try and decode the subject and make an Indicator.
         try:
             self.decoded_subject = "".join(str(make_header(decode_header(self.get_header("subject")[0]))).splitlines())
-            ind = Indicator.Indicator(self.decoded_subject, "Email - Subject")
-            ind.add_tags(["phish", "decoded_subject"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            try:
+                ind = Indicator.Indicator(self.decoded_subject, "Email - Subject")
+                ind.add_tags(["phish", "decoded_subject"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
+            except ValueError:
+                pass
         except IndexError:
             self.decoded_subject = ""
 
         # Make an Indicator for each to address.
         self.to_list = [x[1] for x in self._get_address_list("to")]
         for address in self.to_list:
-            if address:
+            try:
                 ind = Indicator.Indicator(address, "Email - Address")
                 ind.add_tags(["phish", "to_address"])
                 if self.from_address:
                     ind.add_relationships(self.from_address)
                 self.iocs.append(ind)
+            except ValueError:
+                pass
             
         # Make an Indicator for each CC address.
         self.cc_list = [x[1] for x in self._get_address_list("cc")]
         for address in self.cc_list:
-            if address:
+            try:
                 ind = Indicator.Indicator(address, "Email - Address")
                 ind.add_tags(["phish", "cc_address"])
                 if self.from_address:
                     ind.add_relationships(self.from_address)
                 self.iocs.append(ind)
+            except ValueError:
+                pass
         
         # Make an Indicator for each BCC address.
         self.bcc_list = [x[1] for x in self._get_address_list("bcc")]
         for address in self.bcc_list:
-            if address:
+            try:
                 ind = Indicator.Indicator(address, "Email - Address")
                 ind.add_tags(["phish", "bcc_address"])
                 if self.from_address:
                     ind.add_relationships(self.from_address)
                 self.iocs.append(ind)
+            except ValueError:
+                pass
 
         # Make an Indicator for the message ID.
         try:
             self.message_id = self.get_header("message-id")[0]
-            ind = Indicator.Indicator(self.message_id, "Email Message ID")
-            ind.add_tags(["phish", "message_id"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            try:
+                ind = Indicator.Indicator(self.message_id, "Email Message ID")
+                ind.add_tags(["phish", "message_id"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
+            except ValueError:
+                pass
         except IndexError:
             self.message_id = ""
                 
         # Make an Indicator for the x-mailer.
         try:
             self.x_mailer = self.get_header("x-mailer")[0]
-            ind = Indicator.Indicator(self.x_mailer, "Email - Xmailer")
-            ind.add_tags(["phish", "x-mailer"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            try:
+                ind = Indicator.Indicator(self.x_mailer, "Email - Xmailer")
+                ind.add_tags(["phish", "x-mailer"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
+            except ValueError:
+                pass
         except IndexError:
             self.x_mailer = ""
         
         # Make an Indicator for the x-original-sender.
         try:
             self.x_original_sender = self.get_header("x-original-sender")[0]
-            ind = Indicator.Indicator(address, "Email - Address")
-            ind.add_tags(["phish", "x-original-sender"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
+            try:
+                ind = Indicator.Indicator(address, "Email - Address")
+                ind.add_tags(["phish", "x-original-sender"])
+                if self.from_address:
+                    ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
+            except ValueError:
+                pass
         except IndexError:
             self.x_original_sender = ""
         
@@ -238,11 +277,14 @@ class EmailParser():
             ip = RegexHelpers.find_ip_addresses(x_originating_ip)
             if ip:
                 self.x_originating_ip = ip[0]
-                ind = Indicator.Indicator(self.x_originating_ip, "Address - ipv4-addr")
-                ind.add_tags(["phish", "x-originating-ip"])
-                if self.from_address:
-                    ind.add_relationships(self.from_address)
-                self.iocs.append(ind)
+                try:
+                    ind = Indicator.Indicator(self.x_originating_ip, "Address - ipv4-addr")
+                    ind.add_tags(["phish", "x-originating-ip"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
         except IndexError:
             self.x_originating_ip = ""
         
@@ -254,15 +296,19 @@ class EmailParser():
             ip = RegexHelpers.find_ip_addresses(x_sender_ip)
             if ip:
                 self.x_sender_ip = ip[0]
-                ind = Indicator.Indicator(self.x_sender_ip, "Address - ipv4-addr")
-                ind.add_tags(["phish", "x-sender-ip"])
-                if self.from_address:
-                    ind.add_relationships(self.from_address)
-                self.iocs.append(ind)
+                try:
+                    ind = Indicator.Indicator(self.x_sender_ip, "Address - ipv4-addr")
+                    ind.add_tags(["phish", "x-sender-ip"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
         except IndexError:
             self.x_sender_ip = ""
         
         # Make Indicators for any URLs in the plaintext body.
+        # Indicator.generate_url_indicators() catches its own exceptions.
         text_urls = RegexHelpers.find_urls(self.body)
         text_urls_indicators = Indicator.generate_url_indicators(text_urls)
         for ind in text_urls_indicators:
@@ -305,41 +351,50 @@ class EmailParser():
                 
             # Make an Indicator for the filename.
             if file["name"]:
-                ind = Indicator.Indicator(file["name"], "Windows - FileName")
-                ind.add_tags(["phish", "attachment"])
-                if self.from_address:
-                    ind.add_relationships(self.from_address)
-                if file["md5"]:
-                    ind.add_relationships(file["md5"])
-                if file["sha256"]:
-                    ind.add_relationships(file["sha256"])
-                self.iocs.append(ind)
+                try:
+                    ind = Indicator.Indicator(file["name"], "Windows - FileName")
+                    ind.add_tags(["phish", "attachment"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    if file["md5"]:
+                        ind.add_relationships(file["md5"])
+                    if file["sha256"]:
+                        ind.add_relationships(file["sha256"])
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
                 
             # Make an Indicator for the MD5 hash.
             if file["md5"]:
-                ind = Indicator.Indicator(file["md5"], "Hash - MD5")
-                ind.add_tags(["phish", "attachment"])
-                if self.from_address:
-                    ind.add_relationships(self.from_address)
-                if file["name"]:
-                    ind.add_tags(file["name"])
-                    ind.add_relationships(file["name"])
-                if file["sha256"]:
-                    ind.add_relationships(file["sha256"])
-                self.iocs.append(ind)
+                try:
+                    ind = Indicator.Indicator(file["md5"], "Hash - MD5")
+                    ind.add_tags(["phish", "attachment"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    if file["name"]:
+                        ind.add_tags(file["name"])
+                        ind.add_relationships(file["name"])
+                    if file["sha256"]:
+                        ind.add_relationships(file["sha256"])
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
                 
             # Make an Indicator for the SHA256 hash.
             if file["sha256"]:
-                ind = Indicator.Indicator(file["sha256"], "Hash - SHA256")
-                ind.add_tags(["phish", "attachment"])
-                if self.from_address:
-                    ind.add_relationships(self.from_address)
-                if file["name"]:
-                    ind.add_tags(file["name"])
-                    ind.add_relationships(file["name"])
-                if file["md5"]:
-                    ind.add_relationships(file["md5"])
-                self.iocs.append(ind)
+                try:
+                    ind = Indicator.Indicator(file["sha256"], "Hash - SHA256")
+                    ind.add_tags(["phish", "attachment"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    if file["name"]:
+                        ind.add_tags(file["name"])
+                        ind.add_relationships(file["name"])
+                    if file["md5"]:
+                        ind.add_relationships(file["md5"])
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
 
         # Parse the URLs and prevent "duplicate" URLs
         # like http://blah.com/ and http://blah.com
