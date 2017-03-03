@@ -86,13 +86,13 @@ re.search() function.
 Your whitelist files can have comments in them if the lines begin with the "#" character.
 
 Example config file for e-mail addresses (one regex per line):
-```python
+```
 @yourdomain.com
 someguy@yourdomain.com
 ```
 
 Example config file for IP addresses (one regex per line):
-```python
+```
 127.0.0.1
 # Private RFC 1918 addresses
 10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}
