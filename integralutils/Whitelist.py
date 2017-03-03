@@ -11,7 +11,7 @@ class Whitelist:
 
         self.config = configparser.ConfigParser()
         self.config.read(config_path)
-        
+
         # This will read your config file and create class variables
         # named <section>_<key>. For example, if your config file has
         # a section named "whitelist" and a key in that section named
@@ -22,6 +22,9 @@ class Whitelist:
             for key in self.config[section]:
                 section_key = section + "_" + key
                 if not hasattr(self, section_key):
+                    # I removed a try/except block around this since users will
+                    # probably want to see the FileNotFoundError if their whitelist
+                    # config points to a missing whitelist.
                     with open(self.config[section][key]) as f:
                         lines = f.read().splitlines()
                         
@@ -46,8 +49,8 @@ class Whitelist:
             return False
         
     def is_ip_benign(self, ip):
-        if hasattr(self, "benign_ip"):
-            for regex in self.benign_ip:
+        if hasattr(self, "benignlist_ip"):
+            for regex in self.benignlist_ip:
                 pattern = re.compile(regex)
                 if pattern.search(ip):
                     return True
@@ -68,8 +71,8 @@ class Whitelist:
             return False
         
     def is_domain_benign(self, domain):
-        if hasattr(self, "benign_domain"):
-            for regex in self.benign_domain:
+        if hasattr(self, "benignlist_domain"):
+            for regex in self.benignlist_domain:
                 pattern = re.compile(regex)
                 if pattern.search(domain):
                     return True
@@ -90,8 +93,8 @@ class Whitelist:
             return False
         
     def is_file_path_benign(self, file_path):
-        if hasattr(self, "benign_filepath"):
-            for regex in self.benign_filepath:
+        if hasattr(self, "benignlist_filepath"):
+            for regex in self.benignlist_filepath:
                 pattern = re.compile(regex)
                 if pattern.search(file_path):
                     return True
@@ -112,8 +115,8 @@ class Whitelist:
             return False
         
     def is_file_name_benign(self, file_name):
-        if hasattr(self, "benign_filename"):
-            for regex in self.benign_filename:
+        if hasattr(self, "benignlist_filename"):
+            for regex in self.benignlist_filename:
                 pattern = re.compile(regex)
                 if pattern.search(file_name):
                     return True
@@ -134,8 +137,8 @@ class Whitelist:
             return False
         
     def is_email_benign(self, email):
-        if hasattr(self, "benign_email"):
-            for regex in self.benign_email:
+        if hasattr(self, "benignlist_email"):
+            for regex in self.benignlist_email:
                 pattern = re.compile(regex)
                 if pattern.search(email):
                     return True
@@ -156,8 +159,8 @@ class Whitelist:
             return False
 
     def is_md5_benign(self, md5):
-        if hasattr(self, "benign_md5"):
-            for regex in self.benign_md5:
+        if hasattr(self, "benignlist_md5"):
+            for regex in self.benignlist_md5:
                 pattern = re.compile(regex)
                 if pattern.search(md5):
                     return True
@@ -178,8 +181,8 @@ class Whitelist:
             return False
 
     def is_sha1_benign(self, sha1):
-        if hasattr(self, "benign_sha1"):
-            for regex in self.benign_sha1:
+        if hasattr(self, "benignlist_sha1"):
+            for regex in self.benignlist_sha1:
                 pattern = re.compile(regex)
                 if pattern.search(sha1):
                     return True
@@ -200,8 +203,8 @@ class Whitelist:
             return False
 
     def is_sha256_benign(self, sha256):
-        if hasattr(self, "benign_sha256"):
-            for regex in self.benign_sha256:
+        if hasattr(self, "benignlist_sha256"):
+            for regex in self.benignlist_sha256:
                 pattern = re.compile(regex)
                 if pattern.search(sha256):
                     return True
@@ -222,8 +225,8 @@ class Whitelist:
             return False
 
     def is_registry_benign(self, reg_key):
-        if hasattr(self, "benign_registry"):
-            for regex in self.benign_registry:
+        if hasattr(self, "benignlist_registry"):
+            for regex in self.benignlist_registry:
                 pattern = re.compile(regex)
                 if pattern.search(reg_key):
                     return True
@@ -244,10 +247,32 @@ class Whitelist:
             return False
 
     def is_url_benign(self, url):
-        if hasattr(self, "benign_url"):
-            for regex in self.benign_url:
+        if hasattr(self, "benignlist_url"):
+            for regex in self.benignlist_url:
                 pattern = re.compile(regex)
                 if pattern.search(url):
+                    return True
+            else:
+                return False
+        else:
+            return False
+        
+    def is_mutex_whitelisted(self, mutex):
+        if hasattr(self, "whitelist_mutex"):
+            for regex in self.whitelist_mutex:
+                pattern = re.compile(regex)
+                if pattern.search(mutex):
+                    return True
+            else:
+                return False
+        else:
+            return False
+
+    def is_mutex_benign(self, mutex):
+        if hasattr(self, "benignlist_mutex"):
+            for regex in self.benignlist_mutex:
+                pattern = re.compile(regex)
+                if pattern.search(mutex):
                     return True
             else:
                 return False
@@ -264,7 +289,8 @@ class Whitelist:
                self.is_sha1_whitelisted(thing) or
                self.is_sha256_whitelisted(thing) or
                self.is_registry_whitelisted(thing) or
-               self.is_url_whitelisted(thing))
+               self.is_url_whitelisted(thing) or
+               self.is_mutex_whitelisted(thing))
     
     def is_thing_benign(self, thing):
         return(self.is_ip_benign(thing) or
@@ -276,4 +302,5 @@ class Whitelist:
                self.is_sha1_benign(thing) or
                self.is_sha256_benign(thing) or
                self.is_registry_benign(thing) or
-               self.is_url_benign(thing))
+               self.is_url_benign(thing) or
+               self.is_mutex_benign(thing))

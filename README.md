@@ -8,6 +8,8 @@ Other features include:
 
 -- *Generate a list of Indicator objects from a list of URLs.*
 
+-- *Return a list of Indicator objects after running them against your whitelists.*
+
 -- *Write a list of Indicator objects to a CSV file for easier importing into CRITS.*
 
 -- *Read an existing CSV file and parse it into Indicator objects.*
@@ -46,6 +48,8 @@ Class that intelligently parses e-mails (raw email/rfc822 files or text). Key fe
 
 -- *Generates CRITS-style indicators from various header fields and attachment characteristics.*
 
+-- *Runs the indicators through your whitelists to remove any bad indicators.*
+
 -- *Parses common header fields like from, to, subject, message-id, etc.*
 
 -- *Extracts "visible text" from HTML e-mail body to help with span/div obfuscated HTML.*
@@ -70,8 +74,31 @@ for ioc in parsed_email.iocs:
     print(ioc.relationships)
 ```
 
-**There is no whitelisting performed when creating the indicators. If you decide to use this to
-import into CRITS, you will likely want to perform your own whitelisting depending on your needs.**
+**By default the EmailParser class will take advantage of the Whitelist class
+and the various whitelists that you configure it to use.**
+
+## Whitelist
+Class that has various whitelist/benignlist functionality. You specify in the config
+file the paths to your various whitelists. The functions in the Whitelist class expect
+the lines in your whitelist files to be valid regex statements since they rely on the
+re.search() function.
+
+Your whitelist files can have comments in them if the lines begin with the "#" character.
+
+Example config file for e-mail addresses (one regex per line):
+```python
+@yourdomain.com
+someguy@yourdomain.com
+```
+
+Example config file for IP addresses (one regex per line):
+```python
+127.0.0.1
+# Private RFC 1918 addresses
+10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}
+172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}
+192\.168\.[0-9]{1,3}\.[0-9]{1,3}
+```
 
 ## SandboxParser
 Class that parses several different sandbox JSON reports into a consistent format.

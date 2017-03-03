@@ -12,9 +12,10 @@ from bs4 import BeautifulSoup
 
 from integralutils import RegexHelpers
 from integralutils import Indicator
+from integralutils import Whitelist
 
 class EmailParser():
-    def __init__(self, smtp_path=None, smtp_text=None, attached_email=True):
+    def __init__(self, smtp_path=None, smtp_text=None, attached_email=True, check_whitelist=True):
         # Check that we got at least an SMTP path or text:
         if not smtp_path and not smtp_text:
             raise ValueError("You must specify either an SMTP path or the SMTP text.")
@@ -50,7 +51,7 @@ class EmailParser():
                     # Make an Indicator for the address.
                     self.envelope_from = envelope_address_pattern.match(line).group(1)
                     try:
-                        ind = Indicator.Indicator(self.envelope_from, "Email - Address")
+                        ind = Indicator.Indicator(self.envelope_from, "Email - Address", )
                         ind.add_tags(["phish", "envelope_from_address"])
                         self.iocs.append(ind)
                     except ValueError:
@@ -406,6 +407,10 @@ class EmailParser():
             self.urls.add(url)
                         
         self.received_time = self._get_received_time()
+        
+        # Run the IOCs through the whitelists if requested.
+        if check_whitelist:
+            self.iocs = Indicator.run_whitelist(self.iocs, whitelist=check_whitelist)
 
     def get_header(self, header_name):
         return self._email_obj.get_all(header_name, [])
