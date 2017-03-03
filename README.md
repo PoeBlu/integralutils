@@ -87,13 +87,18 @@ Your whitelist files can have comments in them if the lines begin with the "#" c
 
 Example config file for e-mail addresses (one regex per line):
 ```
+# This will match any e-mail address with "@yourdomain.com" in it.
 @yourdomain.com
+
+# This will match e-mail specifically to this address.
 someguy@yourdomain.com
 ```
 
 Example config file for IP addresses (one regex per line):
 ```
-127.0.0.1
+# This will match an exact IP address.
+127\.0\.0\.1
+
 # Private RFC 1918 addresses
 10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}
 172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}
