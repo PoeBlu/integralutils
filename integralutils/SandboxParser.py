@@ -307,7 +307,7 @@ class SandboxParser():
         if screenshot_files:
             if len(screenshot_files) > 1:
                 # Create a list of each screenshot URL.
-                screenshot_urls = list()
+                screenshot_urls = []
                 for screenshot in screenshot_files:
                     screenshot_urls.append(self.sandbox_host + "/sample/" + self.sha256 + "%23" + str(self.sandbox_sample_id) + "/screenshots/" + screenshot["file"])
             
