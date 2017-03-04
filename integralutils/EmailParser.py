@@ -51,7 +51,7 @@ class EmailParser():
                     # Make an Indicator for the address.
                     self.envelope_from = envelope_address_pattern.match(line).group(1)
                     try:
-                        ind = Indicator.Indicator(self.envelope_from, "Email - Address", )
+                        ind = Indicator.Indicator(self.envelope_from, "Email - Address")
                         ind.add_tags(["phish", "envelope_from_address"])
                         self.iocs.append(ind)
                     except ValueError:
@@ -113,6 +113,7 @@ class EmailParser():
                 try:
                     ind = Indicator.Indicator(ip, "Address - ipv4-addr")
                     ind.add_tags(["phish", "smtp_relay"])
+                    ind.benign()
                     self.iocs.append(ind)
                 except ValueError:
                     pass
@@ -122,6 +123,7 @@ class EmailParser():
                     try:
                         ind = Indicator.Indicator(domain[0], "URI - Domain Name")
                         ind.add_tags(["phish", "smtp_relay"])
+                        ind.benign()
                         self.iocs.append(ind)
                     except ValueError:
                         pass
@@ -410,7 +412,10 @@ class EmailParser():
         
         # Run the IOCs through the whitelists if requested.
         if check_whitelist:
-            self.iocs = Indicator.run_whitelist(self.iocs, whitelist=check_whitelist)
+            self.iocs = Indicator.run_whitelist(self.iocs)
+            
+        # Finally merge the IOCs so we don't have any duplicates.
+        self.iocs = Indicator.merge_duplicate_indicators(self.iocs)
 
     def get_header(self, header_name):
         return self._email_obj.get_all(header_name, [])

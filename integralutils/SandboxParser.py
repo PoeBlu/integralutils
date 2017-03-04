@@ -2,20 +2,26 @@ import os
 import sys
 import requests
 
+from integralutils import Indicator
 from integralutils import JsonConfigParser as jcp
 from integralutils import RegexHelpers
 
 class SandboxParser():
-    def __init__(self, config_path, sandbox_name, json_path, requests_verify=True):
+    def __init__(self, sandbox_name, json_path, config_path=None, requests_verify=True, check_whitelist=True):
         # This can be set to a path to a custom CA cert as well.
         self.requests_verify = requests_verify
         
-        if config_path == None:
+        # If we weren't given a config path, assume we want to load
+        # the one shipped with integralutils.
+        if not config_path:
             config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "etc", "sandbox_json_config.ini")
         
         self.json_path = json_path
         self.json_parser = jcp.JsonConfigParser(config_path, self.json_path)
         self.json_parser.parse_section(sandbox_name)
+        
+        # A place to store any indicators from the parsed report.
+        self.iocs = []
 
         self.sandbox_host = self.json_parser.get_value("sandbox_host")
         self.sandbox_directory = os.path.dirname(self.json_path)
@@ -65,6 +71,213 @@ class SandboxParser():
                 # Otherwise, just set the key to None.
                 else:
                     setattr(self, key, None)
+                    
+        # Make an Indicator for the sample's MD5 hash.
+        if hasattr(self, "md5"):
+            if RegexHelpers.is_md5(self.md5):
+                try:
+                    ind = Indicator.Indicator(self.md5, "Hash - MD5")
+                    ind.add_tags("sandboxed_sample")
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+        
+        # Make an Indicator for the sample's SHA1 hash.
+        if hasattr(self, "sha1"):
+             if RegexHelpers.is_sha1(self.sha1):
+                try:
+                    ind = Indicator.Indicator(self.sha1, "Hash - SHA1")
+                    ind.add_tags("sandboxed_sample")
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+            
+        # Make an Indicator for the sample's SHA256 hash.
+        if hasattr(self, "sha256"):
+            if RegexHelpers.is_sha256(self.sha256):
+                try:
+                    ind = Indicator.Indicator(self.sha256, "Hash - SHA256")
+                    ind.add_tags("sandboxed_sample")
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+            
+        # Make Indicators for any contacted hosts.
+        if hasattr(self, "contacted_hosts"):
+            for host in self.contacted_hosts:
+                # Make an Indicator for the IP itself.
+                if RegexHelpers.is_ip(host.ipv4):
+                    try:
+                        ind = Indicator.Indicator(host.ipv4, "Address - ipv4-addr")
+                        ind.add_tags("contacted_host")
+                        if host.protocol and host.port:
+                            ind.add_tags(host.protocol + " " + host.port)
+                        elif host.protocol and not host.port:
+                            indicator.add_tag(host.protocol)
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
+                
+                    # Make Indicators for any associated domains.
+                    for domain in host.associated_domains:
+                        if RegexHelpers.is_domain(domain["domain"]):
+                            try:
+                                ind = Indicator.Indicator(domain["domain"], "URI - Domain Name")
+                                ind.add_tags("associated_to_" + host.ipv4)
+                                ind.add_relationships(host.ipv4)
+                                self.iocs.append(ind)
+                            except ValueError:
+                                pass
+
+        # Make Indicators for any DNS requests.
+        if hasattr(self, "dns_requests"):
+            for request in self.dns_requests:
+                # Make an Indicator for the requested domain.
+                if RegexHelpers.is_domain(request.request):
+                    try:
+                        ind = Indicator.Indicator(request.request, "URI - Domain Name")
+                        ind.add_tags("dns_request")
+                        # If the DNS answer is an IP, add a tag for it and
+                        # also create an Indicator for it.
+                        if RegexHelpers.is_ip(request.answer):
+                            ind.add_tags(request.answer)
+                            
+                            try:
+                                ip_ind = Indicator.Indicator(request.answer, "Address - ipv4-addr")
+                                ip_ind.add_tags(["dns_response", request.request])
+                                self.iocs.append(ip_ind)
+                            except ValueError:
+                                pass
+                        
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
+                
+        # Make Indicators for any dropped files.
+        # TODO: Add back in the ability to only make Indicators for "interesting"
+        # dropped files, based on file type or file extension.
+        if hasattr(self, "dropped_files"):
+            for file in self.dropped_files:
+                # Make an Indicator for the filename.
+                try:
+                    ind = Indicator.Indicator(file.filename, "Windows - FileName")
+                    ind.add_tags("dropped_file")
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+                
+                # Make an Indicator for the MD5 hash.
+                if RegexHelpers.is_md5(file.md5):
+                    try:
+                        ind = Indicator.Indicator(file.md5, "Hash - MD5")
+                        ind.add_tags([file.filename, "dropped_file"])
+                        ind.add_relationships(file.filename)
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
+                    
+                # Make an Indicator for the SHA1 hash.
+                if RegexHelpers.is_sha1(file.sha1):
+                    try:
+                        ind = Indicator.Indicator(file.sha1, "Hash - SHA1")
+                        ind.add_tags([file.filename, "dropped_file"])
+                        ind.add_relationships(file.filename)
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
+                    
+                # Make an Indicator for the SHA256 hash.
+                if RegexHelpers.is_sha256(file.sha256):
+                    try:
+                        ind = Indicator.Indicator(file.sha256, "Hash - SHA256")
+                        ind.add_tags([file.filename, "dropped_file"])
+                        ind.add_relationships(file.filename)
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
+                    
+        # Make Indicators for any HTTP requests.
+        if hasattr(self, "http_requests"):
+            for request in self.http_requests:
+                # Check if the host is a domain or IP.
+                if RegexHelpers.is_ip(request.host):
+                    indicator_type = "Address - ipv4-addr"
+                # Otherwise it must be a domain.
+                else:
+                    indicator_type = "URI - Domain Name"
+                    
+                # Make an Indicator for the host.
+                try:
+                    ind = Indicator.Indicator(request.host, indicator_type)
+                    ind.add_tags(["http_request", request.method])
+                    if request.method == "POST":
+                        ind.add_tags("c2")
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+
+                # Make an Indicator for the URI path.
+                if request.uri != "/":
+                    try:
+                        ind = Indicator.Indicator(request.uri, "URI - Path")
+                        ind.add_tags(["http_request", request.method, request.host])
+                        if request.method == "POST":
+                            ind.add_tags("c2")
+                        ind.add_relationships(request.host)
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
+
+                # Make an Indicator for the full URL.
+                try:
+                    url = "http://" + request.host + request.uri
+                    ind = Indicator.Indicator(url, "URI - URL")
+                    ind.add_tags(["http_request", request.method])
+                    if request.method == "POST":
+                        ind.add_tags("c2")
+                    ind.add_relationships([request.host, request.uri])
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+                
+                # Make an Indicator for the User-Agent.
+                try:
+                    ind = Indicator.Indicator(request.user_agent, "URI - HTTP - UserAgent")
+                    ind.add_tags(["http_request", request.method, request.host])
+                    if request.method == "POST":
+                        ind.add_tags("c2")
+                    ind.add_relationships([request.host, request.uri])
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+                
+        # Make Indicators for any memory URLs. Currently, memory URLs
+        # also happens to include URLs found inside the process tree.
+        if hasattr(self, "memory_urls"):
+            indicator_list = Indicator.generate_url_indicators(self.memory_urls)
+            
+            # Add some extra tags to the generated indicators and
+            # then add them to our main IOC list.
+            for ind in indicator_list:
+                ind.add_tags("url_in_memory")
+                self.iocs.append(ind)
+                
+        # Make Indicators for any mutexes.
+        if hasattr(self, "mutexes"):
+            for mutex in self.mutexes:
+                try:
+                    ind = Indicator.Indicator(mutex, "Windows - Mutex")
+                    ind.add_tags("mutex_created")
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+                
+        # Run the IOCs through the whitelists if requested.
+        if check_whitelist:
+            self.iocs = Indicator.run_whitelist(self.iocs)
+            
+        # Finally merge the IOCs so we don't have any duplicates.
+        self.iocs = Indicator.merge_duplicate_indicators(self.iocs)
 
     # The following functions correspond to the sections and keys defined in
     # your config file. The format is: <section>_<key>
@@ -101,15 +314,18 @@ class SandboxParser():
                 # Get the size of each screenshot. VxStream uses a large image for its
                 # desktop background, so in most cases, the smallest size screenshot will
                 # be the most interesting (for example a Word document with lots of white).
-                smallest_size = 9999999
-                for url in screenshot_urls:
-                    try:
-                        size = int(requests.head(url, verify=self.requests_verify).headers["content-length"])
-                        if size < smallest_size:
-                            smallest_size = size
-                            screenshot_url = url
-                    except KeyError:
-                        pass
+                try:
+                    smallest_size = 9999999
+                    for url in screenshot_urls:
+                        try:
+                            size = int(requests.head(url, verify=self.requests_verify).headers["content-length"])
+                            if size < smallest_size:
+                                smallest_size = size
+                                screenshot_url = url
+                        except KeyError:
+                            pass
+                except requests.exceptions.ConnectionError:
+                    return ""
                         
         return screenshot_url
 
@@ -404,16 +620,19 @@ class SandboxParser():
         # Keep a dictionary to store the image URLs and their size.
         screenshot_dict = {}
     
-        # Perform the first HTTP HEAD request.
-        req = requests.head(url, allow_redirects=True, verify=self.requests_verify)
-    
-        # Loop until we no longer receive an image.
-        while req.headers["content-type"] == "image/jpeg":
-            screenshot_dict[url] = int(req.headers["content-length"])
-            image_int += 1
-            image_number = str(image_int).zfill(4)
-            url = self.sandbox_host + "/file/screenshot/" + str(self.sandbox_sample_id) + "/" + image_number + "/"
+        try:
+            # Perform the first HTTP HEAD request.
             req = requests.head(url, allow_redirects=True, verify=self.requests_verify)
+
+            # Loop until we no longer receive an image.
+            while req.headers["content-type"] == "image/jpeg":
+                screenshot_dict[url] = int(req.headers["content-length"])
+                image_int += 1
+                image_number = str(image_int).zfill(4)
+                url = self.sandbox_host + "/file/screenshot/" + str(self.sandbox_sample_id) + "/" + image_number + "/"
+                req = requests.head(url, allow_redirects=True, verify=self.requests_verify)
+        except requests.exceptions.ConnectionError:
+            return ""
         
         # Sort the screenshot URLs by their size.
         screenshot_sorted = sorted(screenshot_dict, key=lambda k: screenshot_dict[k])
@@ -889,7 +1108,7 @@ class SandboxParser():
                     process_tree_to_use_size = process_tree_size
             except KeyError:
                 pass
-         
+
         return walk_tree(process_json=process_tree_to_use) 
     
     def wildfire_memory_urls(self):

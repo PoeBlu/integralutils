@@ -1,5 +1,7 @@
 import csv
 import os
+import re
+import configparser
 from urllib.parse import urlsplit
 
 from integralutils import RegexHelpers
@@ -60,9 +62,14 @@ class Indicator:
 
     def add_tags(self, tags):
         if isinstance(tags, str):
-            self._tags.add(tags)
+            # Make sure we don't add a blank string.
+            if tags:
+                self._tags.add(tags)
         elif isinstance(tags, list) or isinstance(tags, set):
-            self._tags.update(tags)
+            for string in tags:
+                # Make sure we don't add a blank string.
+                if string:
+                    self._tags.add(string)
         else:
             raise ValueError("add_tags requires a string or a list of strings")
             
@@ -79,11 +86,17 @@ class Indicator:
         # Make sure that each relationship in the list is a string.
         if all(isinstance(rel, str) for rel in relationships):
             for rel in relationships:
-                # Make sure we don't add a relationship to ourselves.
-                if rel != self.indicator:
-                    self._relationships.add(rel)
+                # Make sure we don't add a blank relationship.
+                if rel:
+                    # Make sure we don't add a relationship to ourselves.
+                    if rel != self.indicator:
+                        self._relationships.add(rel)
         else:
             raise ValueError("each relationship needs to be a string")
+            
+    def benign(self):
+        self.conf = "benign"
+        self.impact = "benign"
 
     def csv_line(self):
         # Convert the set of tags to a string.
@@ -94,151 +107,107 @@ class Indicator:
             
         return [self.indicator, self.type, self.threat_type, self.attack_type, self.description, self.campaign, self.campaign_conf, self.conf, self.impact, tag_string, self.ticket, self.action]
 
-def run_whitelist(indicator_list, whitelist=None):
+def run_whitelist(indicator_list, config_path=None):
     # Make sure we are dealing with a list of Indicator objects.
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):
-        # Place to hold the non-whitelisted and benign indicators.
-        new_indicator_list = []
+        # If we weren't given a config_path, assume we're loading
+        # the one shipped with integralutils.
+        if not config_path:
+            config_path = os.path.join(os.path.dirname(__file__), "etc", "Indicator.ini")
+            
+        # Lists to hold the good (non-whitelisted or benign) indicators
+        # as well as bad (whitelisted) indicators. The bad indicator list is
+        # used at the end to cross-check any relationships in the good indicator
+        # list so we can remove them as well.
+        good_indicators = []
+        bad_indicators = []
         
-        if not whitelist:
-            whitelister = Whitelist.Whitelist()
-        else:
-            if isinstance(whitelist, Whitelist.Whitelist):
-                whitelister = whitelist
-            else:
-                whitelister = Whitelist.Whitelist()
+        # Read the config file and get the Indicator whitelist/benignlist directory.
+        config = configparser.ConfigParser()
+        config.read(config_path)
+        indicator_whitelist_dir = config["Directories"]["whitelist_dir"]
+        indicator_benignlist_dir = config["Directories"]["benignlist_dir"]
+        
+        # List the whitelist directory to see which whitelists we have.
+        indicator_type_whitelist_files = os.listdir(indicator_whitelist_dir)
 
+        # Keep a dictionary of all of the available whitelists.
+        available_whitelists = {}
+        for indicator_type in indicator_type_whitelist_files:
+            with open(os.path.join(indicator_whitelist_dir, indicator_type)) as w:
+                lines = w.read().splitlines()
+                        
+                # Remove any lines that begin with #.
+                lines = [line for line in lines if not line.startswith("#")]
+
+                # Remove any blank lines.
+                lines = [line for line in lines if line]
+                
+                # Store the regex lines in the dictionary.
+                available_whitelists[indicator_type] = lines
+
+        # List the benignlist directory to see which benignlists we have.
+        indicator_type_benignlist_files = os.listdir(indicator_benignlist_dir)
+                      
+        # Keep a dictionary of all of the available benignlists.
+        available_benignlists = {}
+        for indicator_type in indicator_type_benignlist_files:
+            with open(os.path.join(indicator_benignlist_dir, indicator_type)) as b:
+                lines = b.read().splitlines()
+                        
+                # Remove any lines that begin with #.
+                lines = [line for line in lines if not line.startswith("#")]
+
+                # Remove any blank lines.
+                lines = [line for line in lines if line]
+                
+                # Store the regex lines in the dictionary.
+                available_benignlists[indicator_type] = lines
+        
+        # Loop over each indicator in the list and see if we have a
+        # whitelist or benignlist to run against it.
         for ind in indicator_list:
-            # Figure out which Whitelist function to run based on the Indicator type.
-            # Need to have a mapping of indicator types and their appropriate whitelist
-            # function. For now, this is going to be hardcoded based on the indicator
-            # types that we have in our CRITS, but this should eventually be moved into
-            # a config file of some sort that the user can edit.
-            if ind.type == "URI - Domain Name":
-                if whitelister.is_domain_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_domain_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Email - Address" or ind.type == "WHOIS Registrant Email Address":
-                if whitelister.is_email_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_email_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Windows - FileName":
-                if whitelister.is_file_name_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_file_name_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Windows - FilePath":
-                if whitelister.is_file_path_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_file_path_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Address - ipv4-addr":
-                if whitelister.is_ip_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_ip_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Hash - MD5":
-                if whitelister.is_md5_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_md5_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Hash - SHA1":
-                if whitelister.is_sha1_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_sha1_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Hash - SHA256":
-                if whitelister.is_sha256_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_sha256_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Windows - Registry":
-                if whitelister.is_registry_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_registry_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "URI - URL":
-                # First check if the entire URL is whitelisted.
-                if whitelister.is_url_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
+            # Check if we loaded a benignlist for this indicator type.
+            if ind.type in available_benignlists:
+                # Now check if the indicator is actually benign.
+                for regex in available_benignlists[ind.type]:
+                    pattern = re.compile(regex)
+                    if pattern.search(ind.indicator):
+                        ind.benign()
 
-                # If the entire URL is not whitelisted, continue by
-                # checking to see if the IP/domain name are whitelisted.
-                if not whitelister.is_url_whitelisted(ind.indicator):
-                    # Parse the URL.
-                    parsed_url = urlsplit(ind.indicator)
+            # Check if we loaded a whitelist for this indicator type.
+            if ind.type in available_whitelists:
+                # Assume the indicator is not whitelisted to start.
+                good_indicators.append(ind)
+                
+                # Now check if the indicator is actually whitelisted.
+                for regex in available_whitelists[ind.type]:
+                    pattern = re.compile(regex)
+                    # If the regex matched, add the indicator to the
+                    # bad list, and remove it from the good list.
+                    if pattern.search(ind.indicator):
+                        bad_indicators.append(ind)
+                        good_indicators.remove(ind)
 
-                    # Is the netloc an IP address?
-                    if RegexHelpers.is_ip(parsed_url.netloc):
-                        if whitelister.is_ip_benign(parsed_url.netloc):
-                            ind.conf = "benign"
-                            ind.impact = "benign"
-
-                        # If the netloc is an IP and not whitelisted, add it.
-                        if not whitelister.is_ip_whitelisted(parsed_url.netloc):
-                            new_indicator_list.append(ind)
-                    # Otherwise it must be a domain.
-                    else:
-                        if whitelister.is_domain_benign(parsed_url.netloc):
-                            ind.conf = "benign"
-                            ind.impact = "benign"
-
-                        # If the netloc is a domain and not whitelisted, add it.
-                        if not whitelister.is_domain_whitelisted(parsed_url.netloc):
-                            new_indicator_list.append(ind)
-
-            elif ind.type == "URI - Path":
-                if whitelister.is_url_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_url_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            elif ind.type == "Windows - Mutex":
-                if whitelister.is_mutex_benign(ind.indicator):
-                    ind.conf = "benign"
-                    ind.impact = "benign"
-                    
-                if not whitelister.is_mutex_whitelisted(ind.indicator):
-                    new_indicator_list.append(ind)
-            
-            # At this point, we don't have any whitelists for this
-            # particular indicator type. Just add it to the list.
+            # There isn't a whitelist for this indicator type. Just assume it's good.
             else:
-                new_indicator_list.append(ind)
-            
-        return new_indicator_list
+                good_indicators.append(ind)
+
+        # Now loop through the bad indicator list to see if any of
+        # these indicators have relationships with any indicators that we
+        # determined were good. If so, we should treat those indicators as
+        # also being bad. For example, if we have a URL indicator (and thus
+        # also a domain name and URI path indicator), but the domain is
+        # whitelisted, we assume we don't want to bother adding the URI
+        # path or the URL as an indicator.
+        for bad_indicator in bad_indicators:
+            # Iterate over a copy of the good_indicators list so that
+            # we can remove elements from the actual list at the same time.
+            for good_indicator in good_indicators[:]:
+                if bad_indicator.indicator in good_indicator.relationships:
+                    good_indicators.remove(good_indicator)
+
+        return good_indicators
 
 def read_relationships_csv(csv_path):
     # Use a set instead of a list so we weed out any duplicates.

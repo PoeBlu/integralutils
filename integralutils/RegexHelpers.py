@@ -98,3 +98,9 @@ def is_ip(value):
         return True
     else:
         return False
+    
+def is_domain(value):
+    if _domain.match(value):
+        return True
+    else:
+        return False
