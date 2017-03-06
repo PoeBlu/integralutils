@@ -556,10 +556,13 @@ class EmailParser():
     def write_attachments(self, output_path):
         if os.path.exists(output_path):
             for attachment in self.attachments:
+                attachment_path = ""
+                
                 if attachment["name"] and attachment["md5"]:
                     attachment_path = os.path.join(output_path, attachment["name"])
                 elif attachment["md5"]:
                     attachment_path = os.path.join(output_path, attachment["md5"])
 
-                with open(attachment_path, 'wb') as output:
-                    output.write(attachment["data"])
+                if attachment_path:
+                    with open(attachment_path, 'wb') as output:
+                        output.write(attachment["data"])
