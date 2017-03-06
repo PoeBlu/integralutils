@@ -227,17 +227,23 @@ def read_relationships_csv(csv_path):
 
     return sorted(list(relationships))
 
-def write_relationships_csv(indicator_list, csv_path, append=True, merge=True):
+def write_relationships_csv(indicator_list, csv_path, append=True, whitelist=True, merge=True):
     # Make sure we are dealing with a list of Indicator objects.
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):
+        if whitelist:
+            indicator_list = run_whitelist(indicator_list)
+        
         new_relationships = get_unique_relationships(indicator_list)
-
-        if append and os.path.exists(csv_path):
+        
+        if os.path.exists(csv_path):
             existing_relationships = read_relationships_csv(csv_path)
+        else:
+            existing_relationships = []
+
+        if append:
             new_relationships += existing_relationships
 
-        if merge and os.path.exists(csv_path):
-            existing_relationships = read_relationships_csv(csv_path)
+        if merge:
             new_relationships = merge_duplicate_relationships(existing_relationships, new_relationships)
 
         with open(csv_path, "w", newline="") as c:
@@ -290,15 +296,22 @@ def read_indicators_csv(csv_path, merge=True):
     else:
         return indicators
 
-def write_indicators_csv(indicator_list, csv_path, append=True, merge=True):
+def write_indicators_csv(indicator_list, csv_path, append=True, whitelist=True, merge=True):
     # Make sure we are dealing with a list of Indicator objects.
-    if all(isinstance(indicator, Indicator) for indicator in indicator_list):
-        if append and os.path.exists(csv_path):
+    if all(isinstance(indicator, Indicator) for indicator in indicator_list):            
+        if os.path.exists(csv_path):
             existing_indicators = read_indicators_csv(csv_path)
+        else:
+            existing_indicators = []
+            
+        if append:
             indicator_list += existing_indicators
 
         if merge:
             indicator_list = merge_duplicate_indicators(indicator_list)
+            
+        if whitelist:
+            indicator_list = run_whitelist(indicator_list)
 
         with open(csv_path, "w", newline="") as c:
             csv_writer = csv.writer(c)
@@ -373,42 +386,51 @@ def generate_url_indicators(url_list):
     # Parse the URLs so that we can create Indicators and also prevent
     # "duplicate" URLs like http://blah.com/ and http://blah.com
     for url in url_list:
-        # Strip off the ending slash if it's there.
-        if url.endswith("/"):
-            url = url[:-1]
+        if RegexHelpers.is_url(url):
+            # Strip off the ending slash if it's there.
+            if url.endswith("/"):
+                url = url[:-1]
 
-        parsed_url = urlsplit(url)
+            parsed_url = urlsplit(url)
 
-        # Is the netloc an IP address?
-        if RegexHelpers.is_ip(parsed_url.netloc):
-            netloc_type = "Address - ipv4-addr"
-        # If the netloc is not an IP, it must be a domain.
-        else:
-            netloc_type = "URI - Domain Name"
-            
-        # Make an Indicator for the URI host.
-        try:
-            ind = Indicator(parsed_url.netloc, netloc_type)
-            ind.add_tags("uri_host")
-            ind.add_relationships(url)
-            indicators.append(ind)
-        except ValueError:
-            pass
+            # Is the netloc an IP address?
+            if RegexHelpers.is_ip(parsed_url.netloc):
+                netloc_type = "Address - ipv4-addr"
+            # If the netloc is not an IP, it must be a domain.
+            else:
+                netloc_type = "URI - Domain Name"
 
-        # Make an Indicator for the full URL.
-        try:
-            indicators.append(Indicator(url, "URI - URL"))
-        except ValueError:
-            pass
-
-        # Make an Indicator for the path (if there is one).
-        if parsed_url.path and parsed_url.path != "/":
+            # Make an Indicator for the URI host.
             try:
-                ind = Indicator(parsed_url.path, "URI - Path")
-                ind.add_tags(["uri_path", parsed_url.netloc])
-                ind.add_relationships([url, parsed_url.netloc])
+                ind = Indicator(parsed_url.netloc, netloc_type)
+                ind.add_tags("uri_host")
+                ind.add_relationships(url)
                 indicators.append(ind)
             except ValueError:
                 pass
+
+            # Make an Indicator for the full URL.
+            try:
+                ind = Indicator(url, "URI - URL")
+                ind.add_relationships(parsed_url.netloc)
+                indicators.append(ind)
+            except ValueError:
+                pass
+
+            # Make an Indicator for the path (if there is one).
+            if parsed_url.path and parsed_url.path != "/":
+                try:
+                    # Check if there were any ? query items.
+                    if parsed_url.query:
+                        uri_path = parsed_url.path + "?" + parsed_url.query
+                    else:
+                        uri_path = parsed_url.path
+                        
+                    ind = Indicator(uri_path, "URI - Path")
+                    ind.add_tags(["uri_path", parsed_url.netloc])
+                    ind.add_relationships([url, parsed_url.netloc])
+                    indicators.append(ind)
+                except ValueError:
+                    pass
 
     return indicators

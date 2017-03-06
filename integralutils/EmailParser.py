@@ -113,6 +113,8 @@ class EmailParser():
                 try:
                     ind = Indicator.Indicator(ip, "Address - ipv4-addr")
                     ind.add_tags(["phish", "smtp_relay"])
+                    # We consider SMTP relay indicators benign... Don't want to alert every time
+                    # we see the relay sending an e-mail, but it's nice to know for correlation.
                     ind.benign()
                     self.iocs.append(ind)
                 except ValueError:

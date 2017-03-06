@@ -251,8 +251,8 @@ class SandboxParser():
                 except ValueError:
                     pass
                 
-        # Make Indicators for any memory URLs. Currently, memory URLs
-        # also happens to include URLs found inside the process tree.
+        # Make Indicators for any memory URLs. Currently, only VxStream
+        # has this memory URL feature.
         if hasattr(self, "memory_urls"):
             indicator_list = Indicator.generate_url_indicators(self.memory_urls)
             
@@ -262,6 +262,26 @@ class SandboxParser():
                 ind.add_tags("url_in_memory")
                 self.iocs.append(ind)
                 
+        # Make Indicators for any URLs found in the sample's strings.
+        if hasattr(self, "strings_urls"):
+            indicator_list = Indicator.generate_url_indicators(self.strings_urls)
+            
+            # Add some extra tags to the generated indicators and
+            # then add them to our main IOC list.
+            for ind in indicator_list:
+                ind.add_tags("url_in_strings")
+                self.iocs.append(ind)
+
+        # Make Indicators for any URLs found in the sample's process tree.
+        if hasattr(self, "process_tree_urls"):
+            indicator_list = Indicator.generate_url_indicators(self.process_tree_urls)
+            
+            # Add some extra tags to the generated indicators and
+            # then add them to our main IOC list.
+            for ind in indicator_list:
+                ind.add_tags("url_in_process_tree")
+                self.iocs.append(ind)
+
         # Make Indicators for any mutexes.
         if hasattr(self, "mutexes"):
             for mutex in self.mutexes:
@@ -483,6 +503,9 @@ class SandboxParser():
                     contacted_hosts.append(h)
                 
         return contacted_hosts
+    
+    def vxstream_process_tree_urls(self):
+        return RegexHelpers.find_urls(str(self.vxstream_process_tree()))
 
     def vxstream_process_tree(self):
         process_list = ProcessList()
@@ -511,22 +534,13 @@ class SandboxParser():
                 
             for url in memory_urls_json:
                 if isinstance(url, str):
-                    if "http://" in url or "https://" in url:
+                    if RegexHelpers.is_url(url):
                         memory_urls.add(url)
                 if isinstance(url, dict):
-                    if "http://" in url["db"] or "https://" in url:
-                        memory_urls.add(url["db"])
-                
-        strings = self.vxstream_strings()
-        string_urls = RegexHelpers.find_urls(strings)
-        for url in string_urls:
-            memory_urls.add(url[0])
-            
-        process_tree = str(self.vxstream_process_tree)
-        process_tree_urls = RegexHelpers.find_urls(process_tree)
-        for url in process_tree_urls:
-            memory_urls.add(url[0])
-            
+                    if "db" in url:
+                        if RegexHelpers.is_url(url["db"]):
+                            memory_urls.add(url["db"])
+
         return sorted(list(memory_urls))
 
     def vxstream_mutexes(self):
@@ -580,7 +594,10 @@ class SandboxParser():
                     except TypeError:
                         pass
                         
-        return sorted(list(resolved_apis)) 
+        return sorted(list(resolved_apis))
+    
+    def vxstream_strings_urls(self):
+        return RegexHelpers.find_urls(self.vxstream_strings())
 
     def vxstream_strings(self):
         strings_json = self.json_parser.get_value("strings")
@@ -777,6 +794,9 @@ class SandboxParser():
                 
         return contacted_hosts
     
+    def cuckoo_process_tree_urls(self):
+        return RegexHelpers.find_urls(str(self.cuckoo_process_tree()))
+    
     def cuckoo_process_tree(self):
         def walk_tree(process_json=None, process_list=None):
             if not process_list:
@@ -793,21 +813,6 @@ class SandboxParser():
             return process_list
                 
         return walk_tree(process_json=self.json_parser.get_value("process_tree")) 
-        
-    def cuckoo_memory_urls(self):
-        memory_urls = set()
-        strings = self.cuckoo_strings()
-        
-        urls = RegexHelpers.find_urls(strings)
-        for url in urls:
-            memory_urls.add(url[0])
-            
-        process_tree = str(self.cuckoo_process_tree)
-        process_tree_urls = RegexHelpers.find_urls(process_tree)
-        for url in process_tree_urls:
-            memory_urls.add(url[0])
-                
-        return sorted(list(memory_urls))
         
     def cuckoo_mutexes(self):
         mutexes = set()
@@ -848,6 +853,9 @@ class SandboxParser():
                 started_services.add(service)
                 
         return sorted(list(started_services))
+    
+    def cuckoo_strings_urls(self):
+        return RegexHelpers.find_urls(self.cuckoo_strings())
     
     def cuckoo_strings(self):
         strings_json = self.json_parser.get_value("strings")
@@ -1068,6 +1076,9 @@ class SandboxParser():
                 pass
         
         return list(contacted_hosts)
+    
+    def wildfire_process_tree_urls(self):
+        return RegexHelpers.find_urls(str(self.wildfire_process_tree()))
     
     def wildfire_process_tree(self):
         def walk_tree(process_json=None, process_list=None, previous_pid=0):

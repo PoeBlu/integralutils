@@ -75,6 +75,12 @@ def is_md5(value):
     else:
         return False
     
+def is_url(value):
+    if _url.match(value):
+        return True
+    else:
+        return False
+    
 def is_sha1(value):
     if _sha1.match(value):
         return True
