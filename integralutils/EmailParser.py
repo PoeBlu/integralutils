@@ -556,9 +556,9 @@ class EmailParser():
     def write_attachments(self, output_path):
         if os.path.exists(output_path):
             for attachment in self.attachments:
-                if attachment["name"]:
+                if attachment["name"] and attachment["md5"]:
                     attachment_path = os.path.join(output_path, attachment["name"])
-                else:
+                elif attachment["md5"]:
                     attachment_path = os.path.join(output_path, attachment["md5"])
 
                 with open(attachment_path, 'wb') as output:
