@@ -68,9 +68,9 @@ class SandboxParser():
                 if hasattr(self, func_name):
                     func = getattr(self, func_name)
                     setattr(self, key, func())
-                # Otherwise, just set the key to None.
+                # Otherwise, just set the key to an empty list.
                 else:
-                    setattr(self, key, None)
+                    setattr(self, key, [])
                     
         # Make an Indicator for the sample's MD5 hash.
         if hasattr(self, "md5"):
@@ -855,6 +855,7 @@ class SandboxParser():
         return sorted(list(started_services))
     
     def cuckoo_strings_urls(self):
+        print("RUNNING CUCKOO_STRINGS_URLS!")
         return RegexHelpers.find_urls(self.cuckoo_strings())
     
     def cuckoo_strings(self):
