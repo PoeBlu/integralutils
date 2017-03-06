@@ -6,7 +6,7 @@ from integralutils import Indicator
 from integralutils import JsonConfigParser as jcp
 from integralutils import RegexHelpers
 
-class SandboxParser():
+class SandboxParser:
     def __init__(self, sandbox_name, json_path, config_path=None, requests_verify=True, check_whitelist=True):
         # This can be set to a path to a custom CA cert as well.
         self.requests_verify = requests_verify
