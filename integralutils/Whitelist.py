@@ -1,5 +1,6 @@
 import os
 import re
+from urllib.parse import urlsplit
 import configparser
 
 class Whitelist:
@@ -236,6 +237,18 @@ class Whitelist:
             return False
         
     def is_url_whitelisted(self, url):
+        # Parse the URL so we can first see if the domain or IP is whitelisted.
+        parsed_url = parsed_url = urlsplit(url)
+        if parsed_url.netloc:
+            if self.is_domain_whitelisted(parsed_url.netloc):
+                return True
+            if self.is_ip_whitelisted(parsed_url.netloc):
+                return True
+
+        # Now check if the URI path is whitelisted.
+        # TODO...
+            
+        # Finally, see if the URL as a whole is whitelisted.
         if hasattr(self, "whitelist_url"):
             for regex in self.whitelist_url:
                 pattern = re.compile(regex)
