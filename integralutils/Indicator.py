@@ -108,6 +108,10 @@ class Indicator:
         return [self.indicator, self.type, self.threat_type, self.attack_type, self.description, self.campaign, self.campaign_conf, self.conf, self.impact, tag_string, self.ticket, self.action]
 
 def run_whitelist(indicator_list, config_path=None):
+    # In case we were given just a single Indicator, add it to a list.
+    if isinstance(indicator_list, Indicator):
+        indicator_list = [indicator_list]
+        
     # Make sure we are dealing with a list of Indicator objects.
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):
         # If we weren't given a config_path, assume we're loading
