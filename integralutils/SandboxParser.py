@@ -161,59 +161,52 @@ class SandboxParser:
         # dropped files, based on file type or file extension.
         if hasattr(self, "dropped_files"):
             for file in self.dropped_files:
-                # Assume the dropped file is not at a whitelisted path.
-                whitelisted_path = False
-                
-                # Make a dummy Indicator for the dropped file's path.
+                # Make an Indicator for the file path.
                 try:
-                    file_path_ind = Indicator.Indicator(file.path, "Windows - FilePath")
-                    
-                    # Now see if the path is whitelisted.
-                    good_indicators = Indicator.run_whitelist(file_path_ind)
-                    if len(good_indicators) == 0:
-                        whitelisted_path = True
+                    ind = Indicator.Indicator(file.path, "Windows - FilePath")
+                    ind.add_tags("dropped_file")
+                    ind.add_relationships(file.filename)
+                    self.iocs.append(ind)
                 except ValueError:
                     pass
-                
-                # Only continue making Indicators if the path was not whitelisted.
-                if not whitelisted_path:
-                    # Make an Indicator for the filename.
+
+                # Make an Indicator for the file name.
+                try:
+                    ind = Indicator.Indicator(file.filename, "Windows - FileName")
+                    ind.add_tags("dropped_file")
+                    self.iocs.append(ind)
+                except ValueError:
+                    pass
+
+                # Make an Indicator for the MD5 hash.
+                if RegexHelpers.is_md5(file.md5):
                     try:
-                        ind = Indicator.Indicator(file.filename, "Windows - FileName")
-                        ind.add_tags("dropped_file")
+                        ind = Indicator.Indicator(file.md5, "Hash - MD5")
+                        ind.add_tags([file.filename, "dropped_file"])
+                        ind.add_relationships([file.filename, file.path, file.sha1, file.sha256])
                         self.iocs.append(ind)
                     except ValueError:
                         pass
 
-                    # Make an Indicator for the MD5 hash.
-                    if RegexHelpers.is_md5(file.md5):
-                        try:
-                            ind = Indicator.Indicator(file.md5, "Hash - MD5")
-                            ind.add_tags([file.filename, "dropped_file"])
-                            ind.add_relationships(file.filename)
-                            self.iocs.append(ind)
-                        except ValueError:
-                            pass
+                # Make an Indicator for the SHA1 hash.
+                if RegexHelpers.is_sha1(file.sha1):
+                    try:
+                        ind = Indicator.Indicator(file.sha1, "Hash - SHA1")
+                        ind.add_tags([file.filename, "dropped_file"])
+                        ind.add_relationships([file.filename, file.path, file.md5, file.sha256])
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
 
-                    # Make an Indicator for the SHA1 hash.
-                    if RegexHelpers.is_sha1(file.sha1):
-                        try:
-                            ind = Indicator.Indicator(file.sha1, "Hash - SHA1")
-                            ind.add_tags([file.filename, "dropped_file"])
-                            ind.add_relationships(file.filename)
-                            self.iocs.append(ind)
-                        except ValueError:
-                            pass
-
-                    # Make an Indicator for the SHA256 hash.
-                    if RegexHelpers.is_sha256(file.sha256):
-                        try:
-                            ind = Indicator.Indicator(file.sha256, "Hash - SHA256")
-                            ind.add_tags([file.filename, "dropped_file"])
-                            ind.add_relationships(file.filename)
-                            self.iocs.append(ind)
-                        except ValueError:
-                            pass
+                # Make an Indicator for the SHA256 hash.
+                if RegexHelpers.is_sha256(file.sha256):
+                    try:
+                        ind = Indicator.Indicator(file.sha256, "Hash - SHA256")
+                        ind.add_tags([file.filename, "dropped_file"])
+                        ind.add_relationships([file.filename, file.path, file.md5, file.sha1])
+                        self.iocs.append(ind)
+                    except ValueError:
+                        pass
                     
         # Make Indicators for any HTTP requests.
         if hasattr(self, "http_requests"):

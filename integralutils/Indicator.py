@@ -70,8 +70,6 @@ class Indicator:
                 # Make sure we don't add a blank string.
                 if string:
                     self._tags.add(string)
-        else:
-            raise ValueError("add_tags requires a string or a list of strings")
             
     def add_relationships(self, relationships):
         # If we're adding a single relationship (a string), add it
@@ -79,20 +77,16 @@ class Indicator:
         if isinstance(relationships, str):
             relationships = [relationships]
             
-        # Make sure we're dealing with a list.
-        if not isinstance(relationships, list):
-            raise ValueError("add_relationships requires a string or a list of strings")
-        
-        # Make sure that each relationship in the list is a string.
-        if all(isinstance(rel, str) for rel in relationships):
+        # Make sure we're dealing with a list or set.
+        if isinstance(relationships, list) or isinstance(relationships, set):        
             for rel in relationships:
-                # Make sure we don't add a blank relationship.
-                if rel:
-                    # Make sure we don't add a relationship to ourselves.
-                    if rel != self.indicator:
-                        self._relationships.add(rel)
-        else:
-            raise ValueError("each relationship needs to be a string")
+                # Make sure it's a string.
+                if isinstance(rel, str):
+                    # Make sure we don't add a blank string.
+                    if rel:
+                        # Make sure we don't add a relationship to ourselves.
+                        if rel != self.indicator:
+                            self._relationships.add(rel)
             
     def benign(self):
         self.conf = "benign"
