@@ -513,13 +513,19 @@ class EmailParser():
                     else:
                         file_data_decoded = file_data
 
-                    md5_hasher = hashlib.md5()
-                    md5_hasher.update(file_data_decoded)
-                    md5_hash = md5_hasher.hexdigest()
+                    try:
+                        md5_hasher = hashlib.md5()
+                        md5_hasher.update(file_data_decoded)
+                        md5_hash = md5_hasher.hexdigest()
+                    except TypeError:
+                        md5_hash = ""
 
-                    sha256_hasher = hashlib.sha256()
-                    sha256_hasher.update(file_data_decoded)
-                    sha256_hash = sha256_hasher.hexdigest()
+                    try:
+                        sha256_hasher = hashlib.sha256()
+                        sha256_hasher.update(file_data_decoded)
+                        sha256_hash = sha256_hasher.hexdigest()
+                    except TypeError:
+                        sha256_hash = ""
 
                     attachment_dict["data"] = file_data_decoded
                     attachment_dict["content_type"] = message_part.get_content_type()
