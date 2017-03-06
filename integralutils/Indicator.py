@@ -187,7 +187,10 @@ def run_whitelist(indicator_list, config_path=None):
                     # bad list, and remove it from the good list.
                     if pattern.search(ind.indicator):
                         bad_indicators.append(ind)
-                        good_indicators.remove(ind)
+                        try:
+                            good_indicators.remove(ind)
+                        except ValueError:
+                            pass
 
             # There isn't a whitelist for this indicator type. Just assume it's good.
             else:
