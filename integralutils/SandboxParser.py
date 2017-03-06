@@ -855,7 +855,6 @@ class SandboxParser():
         return sorted(list(started_services))
     
     def cuckoo_strings_urls(self):
-        print("RUNNING CUCKOO_STRINGS_URLS!")
         return RegexHelpers.find_urls(self.cuckoo_strings())
     
     def cuckoo_strings(self):
