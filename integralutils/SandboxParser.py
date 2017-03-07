@@ -11,11 +11,10 @@ from integralutils import Whitelist
 class SandboxParser:
     def __init__(self, sandbox_name, json_path, config_path=None, requests_verify=True, check_whitelist=True):
         # Check if the config file has a ca_cert value set.
-        if not config_path:
-            config_path = os.path.join(os.path.dirname(__file__), "etc", "config.ini")
+        main_config_path = os.path.join(os.path.dirname(__file__), "etc", "config.ini")
         
         config = configparser.ConfigParser()
-        config.read(config_path)
+        config.read(main_config_path)
         if "ca_cert" in config["Requests"]:
             self.requests_verify = config["Requests"]["ca_cert"]
         else:
