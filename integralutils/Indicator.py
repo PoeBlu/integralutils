@@ -383,6 +383,11 @@ def merge_duplicate_indicators(indicator_list):
         
 def generate_url_indicators(url_list):
     indicators = []
+    
+    # In case we were given a string (a single URL), add it
+    # to a list for consistent processing.
+    if isinstance(url_list, str):
+        url_list = [url_list]
         
     # Parse the URLs so that we can create Indicators and also prevent
     # "duplicate" URLs like http://blah.com/ and http://blah.com
