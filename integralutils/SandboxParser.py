@@ -9,8 +9,16 @@ from integralutils import Whitelist
 
 class SandboxParser:
     def __init__(self, sandbox_name, json_path, config_path=None, requests_verify=True, check_whitelist=True):
-        # This can be set to a path to a custom CA cert as well.
-        self.requests_verify = requests_verify
+        # Check if the config file has a ca_cert value set.
+        if not config_path:
+            config_path = os.path.join(os.path.dirname(__file__), "etc", "config.ini")
+        
+        config = configparser.ConfigParser()
+        config.read(config_path)
+        if "ca_cert" in config["Requests"]:
+            self.requests_verify = config["Requests"]["ca_cert"]
+        else:
+            self.requests_verify = requests_verify
         
         # If we weren't given a config path, assume we want to load
         # the one shipped with integralutils.
