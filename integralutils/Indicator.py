@@ -111,7 +111,7 @@ def run_whitelist(indicator_list, config_path=None):
         # If we weren't given a config_path, assume we're loading
         # the one shipped with integralutils.
         if not config_path:
-            config_path = os.path.join(os.path.dirname(__file__), "etc", "Indicator.ini")
+            config_path = os.path.join(os.path.dirname(__file__), "etc", "config.ini")
             
         # Lists to hold the good (non-whitelisted or benign) indicators
         # as well as bad (whitelisted) indicators. The bad indicator list is
@@ -123,16 +123,16 @@ def run_whitelist(indicator_list, config_path=None):
         # Read the config file and get the Indicator whitelist/benignlist directory.
         config = configparser.ConfigParser()
         config.read(config_path)
-        indicator_whitelist_dir = config["Directories"]["whitelist_dir"]
-        indicator_benignlist_dir = config["Directories"]["benignlist_dir"]
+        indicator_whitelists_dir = config["Indicator"]["whitelists_dir"]
+        indicator_benignlist_dir = config["Indicator"]["benignlist_dir"]
         
         # List the whitelist directory to see which whitelists we have.
-        indicator_type_whitelist_files = os.listdir(indicator_whitelist_dir)
+        indicator_type_whitelist_files = os.listdir(indicator_whitelists_dir)
 
         # Keep a dictionary of all of the available whitelists.
         available_whitelists = {}
         for indicator_type in indicator_type_whitelist_files:
-            with open(os.path.join(indicator_whitelist_dir, indicator_type)) as w:
+            with open(os.path.join(indicator_whitelists_dir, indicator_type)) as w:
                 lines = w.read().splitlines()
                         
                 # Remove any lines that begin with #.
