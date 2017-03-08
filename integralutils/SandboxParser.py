@@ -182,6 +182,7 @@ class SandboxParser:
                 try:
                     ind = Indicator.Indicator(file.filename, "Windows - FileName")
                     ind.add_tags("dropped_file")
+                    ind.add_relationships([file.path, file.md5, file.sha1, file.sha256])
                     self.iocs.append(ind)
                 except ValueError:
                     pass
