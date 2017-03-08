@@ -88,9 +88,12 @@ class Indicator:
                         if rel != self.indicator:
                             self._relationships.add(rel)
             
-    def benign(self):
+    def make_benign(self):
         self.conf = "benign"
         self.impact = "benign"
+        
+    def is_benign(self):
+        return self.conf == "benign" and self.impact == "benign"
 
     def csv_line(self):
         # Convert the set of tags to a string.
@@ -100,8 +103,8 @@ class Indicator:
             tag_string = ""
             
         return [self.indicator, self.type, self.threat_type, self.attack_type, self.description, self.campaign, self.campaign_conf, self.conf, self.impact, tag_string, self.ticket, self.action]
-
-def run_whitelist(indicator_list, config_path=None):
+    
+def run_whitelist(indicator_list, config_path=None, extend_whitelist=True, merge=True):
     # In case we were given just a single Indicator, add it to a list.
     if isinstance(indicator_list, Indicator):
         indicator_list = [indicator_list]
@@ -171,7 +174,7 @@ def run_whitelist(indicator_list, config_path=None):
                 for regex in available_benignlists[ind.type]:
                     pattern = re.compile(regex)
                     if pattern.search(ind.indicator):
-                        ind.benign()
+                        ind.make_benign()
 
             # Check if we loaded a whitelist for this indicator type.
             if ind.type in available_whitelists:
@@ -194,20 +197,25 @@ def run_whitelist(indicator_list, config_path=None):
             else:
                 good_indicators.append(ind)
 
-        # Now loop through the bad indicator list to see if any of
-        # these indicators have relationships with any indicators that we
-        # determined were good. If so, we should treat those indicators as
-        # also being bad. For example, if we have a URL indicator (and thus
-        # also a domain name and URI path indicator), but the domain is
-        # whitelisted, we assume we don't want to bother adding the URI
-        # path or the URL as an indicator.
-        for bad_indicator in bad_indicators:
-            # Iterate over a copy of the good_indicators list so that
-            # we can remove elements from the actual list at the same time.
-            for good_indicator in good_indicators[:]:
-                if bad_indicator.indicator in good_indicator.relationships:
-                    good_indicators.remove(good_indicator)
+        if extend_whitelist:
+            # Now loop through the bad indicator list to see if any of
+            # these indicators have relationships with any indicators that we
+            # determined were good. If so, we should treat those indicators as
+            # also being bad. For example, if we have a URL indicator (and thus
+            # also a domain name and URI path indicator), but the domain is
+            # whitelisted, we assume we don't want to bother adding the URI
+            # path or the URL as an indicator.
+            for bad_indicator in bad_indicators:
+                # Iterate over a copy of the good_indicators list so that
+                # we can remove elements from the actual list at the same time.
+                for good_indicator in good_indicators[:]:
+                    if bad_indicator.indicator in good_indicator.relationships:
+                        good_indicators.remove(good_indicator)
 
+        if merge:
+            # Merge the indicators if necessary.
+            good_indicators = merge_duplicate_indicators(good_indicators)
+            
         return good_indicators
 
 def read_relationships_csv(csv_path):
