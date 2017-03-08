@@ -425,17 +425,25 @@ def generate_url_indicators(url_list):
 
             # Make an Indicator for the path (if there is one).
             if parsed_url.path and parsed_url.path != "/":
-                try:
-                    # Check if there were any ? query items.
-                    if parsed_url.query:
-                        uri_path = parsed_url.path + "?" + parsed_url.query
-                    else:
-                        uri_path = parsed_url.path
-                        
+                try: 
                     ind = Indicator(uri_path, "URI - Path")
                     ind.add_tags(["uri_path", parsed_url.netloc])
                     ind.add_relationships([url, parsed_url.netloc])
                     indicators.append(ind)
+                except ValueError:
+                    pass
+                
+            # Make an Indicator for the path including the query items.
+            if parsed_url.path and parsed_url.path != "/":
+                try:
+                    # Check if there were any ? query items.
+                    if parsed_url.query:
+                        uri_path = parsed_url.path + "?" + parsed_url.query
+                        
+                        ind = Indicator(uri_path, "URI - Path")
+                        ind.add_tags(["uri_path", parsed_url.netloc])
+                        ind.add_relationships([url, parsed_url.netloc])
+                        indicators.append(ind)
                 except ValueError:
                     pass
 
