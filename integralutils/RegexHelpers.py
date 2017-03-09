@@ -70,43 +70,64 @@ def find_domains(value):
     return _domain.findall(value)
 
 def is_md5(value):
-    if _md5.match(value):
-        return True
-    else:
+    try:
+        if _md5.match(value):
+            return True
+        else:
+            return False
+    except TypeError:
         return False
     
 def is_url(value):
-    if _url.match(value):
-        return True
-    else:
+    try:
+        if _url.match(value):
+            return True
+        else:
+            return False
+    except TypeError:
         return False
     
 def is_sha1(value):
-    if _sha1.match(value):
-        return True
-    else:
+    try:
+        if _sha1.match(value):
+            return True
+        else:
+            return False
+    except TypeError:
         return False
     
 def is_sha256(value):
-    if _sha256.match(value):
-        return True
-    else:
+    try:
+        if _sha256.match(value):
+            return True
+        else:
+            return False
+    except TypeError:
         return False
 
 def is_sha512(value):
-    if _sha512.match(value):
-        return True
-    else:
+    try:
+        if _sha512.match(value):
+            return True
+        else:
+            return False
+    except TypeError:
         return False
 
 def is_ip(value):
-    if _ip.match(value):
-        return True
-    else:
+    try:
+        if _ip.match(value):
+            return True
+        else:
+            return False
+    except TypeError:
         return False
     
 def is_domain(value):
-    if _domain.match(value):
-        return True
-    else:
+    try:
+        if _domain.match(value):
+            return True
+        else:
+            return False
+    except TypeError:
         return False
