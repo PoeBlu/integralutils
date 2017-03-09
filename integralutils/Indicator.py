@@ -434,7 +434,7 @@ def generate_url_indicators(url_list):
             # Make an Indicator for the path (if there is one).
             if parsed_url.path and parsed_url.path != "/":
                 try: 
-                    ind = Indicator(uri_path, "URI - Path")
+                    ind = Indicator(parsed_url.path, "URI - Path")
                     ind.add_tags(["uri_path", parsed_url.netloc])
                     ind.add_relationships([url, parsed_url.netloc])
                     indicators.append(ind)
