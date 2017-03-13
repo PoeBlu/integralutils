@@ -14,6 +14,9 @@ class WildfireParser(GenericSandboxParser):
         self.report = self.load_json(json_report_path)
         self.report_directory = os.path.dirname(json_report_path)
         
+        # Read some items the config file.
+        self.sandbox_display_name = self.config["WildfireParser"]["sandbox_display_name"
+        
         # Most Wildfire values depend on this.
         self.reports_json = self.parse(self.report, "wildfire", "task_info", "report")
         

@@ -9,8 +9,9 @@ class CuckooParser(GenericSandboxParser):
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path, requests_verify=requests_verify)
 
-        # Read the base URL from the config file.
+        # Read some items the config file.
         self.base_url = self.config["CuckooParser"]["base_url"]
+        self.sandbox_display_name = self.config["CuckooParser"]["sandbox_display_name"]
         
         # Load the report JSON.
         self.report = self.load_json(json_report_path)
