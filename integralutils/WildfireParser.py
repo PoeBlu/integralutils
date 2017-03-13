@@ -25,6 +25,7 @@ class WildfireParser(GenericSandboxParser):
             self.reports_json = [self.reports_json]
         
         # Parse some basic info directly from the report.
+        self.sandbox_vm_name = "Virtual Machine 1/2"
         self.filename = "sample"
         self.md5 = self.parse(self.report, "wildfire", "file_info", "md5")
         self.sha1 = self.parse(self.report, "wildfire", "file_info", "sha1")

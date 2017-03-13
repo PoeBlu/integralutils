@@ -23,6 +23,7 @@ class GenericSandboxParser():
         self.iocs                 = []
         self.sandbox_name         = ""
         self.sandbox_display_name = ""
+        self.sandbox_vm_name      = ""
         self.sandbox_url          = ""
         self.screenshot_url       = ""
         self.filename             = ""
