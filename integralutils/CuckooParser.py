@@ -17,10 +17,15 @@ class CuckooParser(GenericSandboxParser):
         self.report = self.load_json(json_report_path)
         self.report_directory = os.path.dirname(json_report_path)
         
+        # Fail if we can't parse the MD5. This is used as a sanity check when
+        # figuring out which of the sandbox parsers you should use on your JSON.
+        self.md5 = self.parse(self.report, "target", "file", "md5")
+        if not self.md5:
+            raise ValueError("Unable to parse Cuckoo MD5 from: " + str(json_report_path))
+            
         # Parse some basic info directly from the report.
         self.sandbox_vm_name = self.parse(self.report, "info", "machine", "name")
         self.filename = self.parse(self.report, "target", "file", "name")
-        self.md5 = self.parse(self.report, "target", "file", "md5")
         self.sha1 = self.parse(self.report, "target", "file", "sha1")
         self.sha256 = self.parse(self.report, "target", "file", "sha256")
         self.sha512 = self.parse(self.report, "target", "file", "sha512")

@@ -53,7 +53,7 @@ class GenericSandboxParser():
             return json.load(j)
     
     # Generic function used to parse JSON keys.
-    def parse(self, json_dict, *json_keys, error=None):
+    def parse(self, json_dict, *json_keys, error=""):
         for key in json_keys:
             try:
                 json_dict = json_dict[key]

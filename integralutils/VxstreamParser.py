@@ -17,9 +17,14 @@ class VxstreamParser(GenericSandboxParser):
         self.report = self.load_json(json_report_path)
         self.report_directory = os.path.dirname(json_report_path)
         
+        # Fail if we can't parse the MD5. This is used as a sanity check when
+        # figuring out which of the sandbox parsers you should use on your JSON.
+        self.md5 = self.parse(self.report, "analysis", "general", "digests", "md5")
+        if not self.md5:
+            raise ValueError("Unable to parse VxStream MD5 from: " + str(json_report_path))
+        
         # Parse some basic info directly from the report.
         self.filename = self.parse(self.report, "analysis", "general", "sample")
-        self.md5 = self.parse(self.report, "analysis", "general", "digests", "md5")
         self.sha1 = self.parse(self.report, "analysis", "general", "digests", "sha1")
         self.sha256 = self.parse(self.report, "analysis", "general", "digests", "sha256")
         self.sha512 = self.parse(self.report, "analysis", "general", "digests", "sha512")

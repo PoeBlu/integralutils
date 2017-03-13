@@ -16,7 +16,12 @@ class WildfireParser(GenericSandboxParser):
         
         # Read some items the config file.
         self.sandbox_display_name = self.config["WildfireParser"]["sandbox_display_name"]
-        self.sandbox_vm_name = "Virtual Machine 1/2"
+        
+        # Fail if we can't parse the MD5. This is used as a sanity check when
+        # figuring out which of the sandbox parsers you should use on your JSON.
+        self.md5 = self.parse(self.report, "wildfire", "file_info", "md5")
+        if not self.md5:
+            raise ValueError("Unable to parse Wildfire MD5 from: " + str(json_report_path))
         
         # Most Wildfire values depend on this.
         self.reports_json = self.parse(self.report, "wildfire", "task_info", "report")
@@ -27,7 +32,6 @@ class WildfireParser(GenericSandboxParser):
         
         # Parse some basic info directly from the report.
         self.filename = "sample"
-        self.md5 = self.parse(self.report, "wildfire", "file_info", "md5")
         self.sha1 = self.parse(self.report, "wildfire", "file_info", "sha1")
         self.sha256 = self.parse(self.report, "wildfire", "file_info", "sha256")
         
