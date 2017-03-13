@@ -18,7 +18,7 @@ class CuckooParser(GenericSandboxParser):
         self.report_directory = os.path.dirname(json_report_path)
         
         # Parse some basic info directly from the report.
-        self.sandbox_vm_name = self.parse(self.report, "info", "machine", "name")
+        self.sandbox_vm_name = self.parse(self.report, "info", "machine", "name", error="")
         self.filename = self.parse(self.report, "target", "file", "name")
         self.md5 = self.parse(self.report, "target", "file", "md5")
         self.sha1 = self.parse(self.report, "target", "file", "sha1")
