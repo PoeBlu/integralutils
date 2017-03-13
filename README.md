@@ -182,14 +182,16 @@ Example config file for IP addresses (one regex per line):
 192\.168\.[0-9]{1,3}\.[0-9]{1,3}
 ```
 
-## SandboxParser
-Class that parses several different sandbox JSON reports into a consistent format.
+## CuckooParser
+Class that parses Cuckoo sandbox reports and gives you back useful information as well as CRITS-compatible indicators.
+
+## VxstreamParser
+Class that parses VxStream sandbox reports and gives you back useful information as well as CRITS-compatible indicators.
+
+## WildfireParser
+Class that parses Palo Alto Wildfire sandbox reports and gives you back useful information as well as CRITS-compatible indicators.
 
 ## RegexHelpers
 Various regex-related functions used in the other classes. For example, given
 some text, extract any URLs from the text and check to see if there are any
 valid URLs embedded within URLs.
-
-## JsonConfigParser
-Generic class primarily used with SandboxParser that takes a configurable .ini
-file to know which parts of the JSON dictionary to parse out.
