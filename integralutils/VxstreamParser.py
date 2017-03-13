@@ -11,7 +11,7 @@ class VxstreamParser(GenericSandboxParser):
         
         # Read some items the config file.
         self.base_url = self.config["VxstreamParser"]["base_url"]
-        self.sandbox_display_name = self.config["VxstreamParser"]["sandbox_display_name"
+        self.sandbox_display_name = self.config["VxstreamParser"]["sandbox_display_name"]
         
         # Load the report JSON.
         self.report = self.load_json(json_report_path)
