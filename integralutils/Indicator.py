@@ -236,11 +236,11 @@ def read_relationships_csv(csv_path):
 
     return sorted(list(relationships))
 
-def write_relationships_csv(indicator_list, csv_path, append=True, whitelist=True, merge=True):
+def write_relationships_csv(indicator_list, csv_path, config_path=None, append=True, whitelist=True, merge=True):
     # Make sure we are dealing with a list of Indicator objects.
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):
         if whitelist:
-            indicator_list = run_whitelist(indicator_list)
+            indicator_list = run_whitelist(indicator_list, config_path=config_path)
         
         new_relationships = get_unique_relationships(indicator_list)
         
@@ -305,7 +305,7 @@ def read_indicators_csv(csv_path, merge=True):
     else:
         return indicators
 
-def write_indicators_csv(indicator_list, csv_path, append=True, whitelist=True, merge=True):
+def write_indicators_csv(indicator_list, csv_path, append=True, config_path=None, whitelist=True, merge=True):
     # Make sure we are dealing with a list of Indicator objects.
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):            
         if os.path.exists(csv_path):
@@ -320,7 +320,7 @@ def write_indicators_csv(indicator_list, csv_path, append=True, whitelist=True, 
             indicator_list = merge_duplicate_indicators(indicator_list)
             
         if whitelist:
-            indicator_list = run_whitelist(indicator_list)
+            indicator_list = run_whitelist(indicator_list, config_path=config_path)
 
         with open(csv_path, "w", newline="") as c:
             csv_writer = csv.writer(c)
