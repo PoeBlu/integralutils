@@ -291,7 +291,9 @@ class GenericSandboxParser():
         # Finally merge the IOCs so we don't have any duplicates.
         self.iocs = Indicator.merge_duplicate_indicators(self.iocs)
 
-    # Property getter/setter for each class attribute.
+    # Property getter/setter for each class attribute. Most of these are not
+    # actually necessary, but they help keep the data in a consistent format
+    # in case you have some other file expecting these values to be a certain way.
     @property
     def sandbox_name(self):
         return self._sandbox_name

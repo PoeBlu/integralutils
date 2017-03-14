@@ -74,10 +74,10 @@ class EmailParser():
         # Exchange journaling sends us the e-mail embedded as an attachment within
         # another e-mail. We need to strip away those outer headers so that we parse
         # the attached e-mail that we actually care about.
-        if attached_email:
-            if "Content-Type: message/rfc822" in smtp_stream:
-                index = smtp_stream.index("Content-Type: message/rfc822")
-                smtp_stream = smtp_stream[index:]
+        #if attached_email:
+        #    if "Content-Type: message/rfc822" in smtp_stream:
+        #        index = smtp_stream.index("Content-Type: message/rfc822")
+        #        smtp_stream = smtp_stream[index:]
 
         # Just in case we are dealing with an "smtp.stream" file that still has
         # the SMTP commands above the actual e-mail, we need to strip those out.
@@ -91,21 +91,33 @@ class EmailParser():
         # Join the header lines into a single string.
         email_text = "\n".join(smtp_stream)
         
-        # IGNORE THIS FOR NOW... GOING TO DEAL WITH THIS EDGE
-        # CASE PROPERLY LATER.
-        # In case the headers are QP-encoded, decode them.
-        #email_text = str(quopri.decodestring(email_text), "utf-8", "replace")
-        
         # Create the e-mail object.
         self._email_obj = email.message_from_string(email_text)
         
+        # If we want to try and parse an embedded/attached e-mail instead...
+        if attached_email:
+            # Walk the full e-mail's parts.
+            for part in self._email_obj.walk():
+                # Continue if the part looks like a valid e-mail.
+                if part.get_content_type() == "message/rfc822":
+                    # Split the part lines into a list.
+                    part_text = str(part).splitlines()
+                    
+                    # Make sure our part starts with the Received: headers.
+                    while not part_text[0].startswith("Received:"):
+                        part_text.pop(0)
+                    part_text = "\n".join(part_text)
+                        
+                    # Make the new e-mail object.
+                    self._email_obj = email.message_from_string(part_text)
+
         # Parse the e-mail object for its content.
         parsed_email = self._parse_content()
         
         # Now that we have the e-mail object, parse out some of the interesting parts.
         self.urls = set()
         self.headers = self._get_all_headers_string()
-        
+                
         # Make Indicators for the received headers (SMTP relays)
         self.received = self.get_header("received")
         for hop in self.received:
@@ -419,7 +431,7 @@ class EmailParser():
         # Finally merge the IOCs so we don't have any duplicates.
         self.iocs = Indicator.merge_duplicate_indicators(self.iocs)
 
-    def get_header(self, header_name):
+    def get_header(self, header_name):        
         return self._email_obj.get_all(header_name, [])
 
     def _get_all_headers_string(self):
@@ -437,10 +449,10 @@ class EmailParser():
     def _get_received_time(self):
         header=self._email_obj.get_all("received", [])
         last_received_lines = header[0]
-        
+
         received_time_pattern = re.compile(r"[A-Z][a-z]{2,3},\s+\d+\s+[A-Z][a-z]{2,3}\s+[0-9]{4}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}\s*(\+\d+|\-\d+)*")
         last_received_time = re.search(received_time_pattern, last_received_lines)
-        
+
         if last_received_time:
             datetime_obj = dateutil.parser.parse(last_received_time.group(0), ignoretz=False)
             localtime = dateutil.tz.tzlocal()
