@@ -5,7 +5,7 @@ import requests
 import re
 
 class PyConfluence():
-    def __init__(self, api_url=None, space_key=None, config_path=None, requests_verify=True, debug=False):
+    def __init__(self, api_url=None, space_key=None, config_path=None, requests_verify=True):
         # If we weren't given a config_path, assume we're loading
         # the one shipped with integralutils.
         if not config_path:
@@ -19,6 +19,15 @@ class PyConfluence():
             self.requests_verify = config["Requests"]["ca_cert"]
         else:
             self.requests_verify = requests_verify
+            
+        # Check if we want debugging.
+        if "debug" in config["PyConfluence"]:
+            if config["PyConfluence"]["debug"].lower() == "true":
+                self.debug = True
+            else:
+                self.debug = False
+        else:
+            self.debug = False
 
         # Load the API URL and space key from the config if we need to.
         if not api_url:
@@ -49,11 +58,6 @@ class PyConfluence():
                     self.password = c.readline().strip()
             else:
                 raise PermissionError("Your Confluence credentials file should have 600 permissions!")
-        
-        if debug == True:
-            self.debug = True
-        else:
-            self.debug = False
             
         self._cached_page = None
         
@@ -165,6 +169,9 @@ class PyConfluence():
             page_current_version = self.get_page_version(page_title)
             cached_page_text = self.get_page_text(page_title)
             if page_id and page_current_version:
+                if self.debug:
+                    print("commit_page attempting to commit:")
+                    print(cached_page_text)
                 data = {'type': 'page', 'id': page_id, 'title': page_title, 'space': {'key': self.space_key}, 'body': {'storage': {'value': cached_page_text, 'representation': 'storage'}}, 'version': {'number': page_current_version+1}}
                 r = requests.put(self.api_url + "/" + page_id, auth=(self.username, self.password), data=json.dumps(data), headers=({'Content-Type':'application/json'}), verify=self.requests_verify)
                 if self._validate_request(r, error_msg="Error with commit_page Confluence API query."):
