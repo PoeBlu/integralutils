@@ -126,6 +126,9 @@ class VxstreamParser(GenericSandboxParser):
             if isinstance(dns_requests_json, dict):
                 dns_requests_json = [dns_requests_json]
                 
+            if isinstance(dns_requests_json, str):
+                dns_requests_json = [dns_requests_json]
+                
             for request in dns_requests_json:
                 r = DnsRequest()
                                 
