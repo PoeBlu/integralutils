@@ -3,9 +3,9 @@ import sys
 import requests
 import configparser
 
-from integralutils.GenericSandboxParser import *
+from integralutils.BaseSandboxParser import *
 
-class WildfireParser(GenericSandboxParser):          
+class WildfireParser(BaseSandboxParser):          
     def __init__(self, json_report_path, config_path=None, requests_verify=True):
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path, requests_verify=requests_verify)

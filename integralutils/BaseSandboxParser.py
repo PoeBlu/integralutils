@@ -4,7 +4,7 @@ import configparser
 from integralutils import RegexHelpers
 from integralutils import Indicator
 
-class GenericSandboxParser():
+class BaseSandboxParser():
     def __init__(self, config_path=None, requests_verify=True):
         # If we weren't given a config_path, assume we're loading
         # the one shipped with integralutils.
