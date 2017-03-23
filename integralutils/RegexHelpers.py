@@ -65,14 +65,14 @@ def find_urls(value):
         for chunk in url.split("https://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
-                    if is_url("https://" + chunk):
-                        cleaned_urls.add("https://" + chunk, bin=is_bin)
+                    if is_url("https://" + chunk, bin=is_bin):
+                        cleaned_urls.add("https://" + chunk)
                     
         for chunk in url.split("ftp://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
-                    if is_url("ftp://" + chunk):
-                        cleaned_urls.add("ftp://" + chunk, bin=is_bin)
+                    if is_url("ftp://" + chunk, bin=is_bin):
+                        cleaned_urls.add("ftp://" + chunk)
 
     return sorted(list(cleaned_urls))
     
