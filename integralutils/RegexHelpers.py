@@ -36,6 +36,7 @@ def decode_utf_b64_string(value):
 
 def find_urls(value):
     is_str = isinstance(value, str)
+    is_bin = not is_str
 
     if is_str:
         regex_pattern = _url
@@ -58,17 +59,20 @@ def find_urls(value):
         for chunk in url.split("http://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
-                    cleaned_urls.add("http://" + chunk)
+                    if is_url("http://" + chunk, bin=is_bin):
+                        cleaned_urls.add("http://" + chunk)
 
         for chunk in url.split("https://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
-                    cleaned_urls.add("https://" + chunk)
+                    if is_url("https://" + chunk):
+                        cleaned_urls.add("https://" + chunk, bin=is_bin)
                     
         for chunk in url.split("ftp://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
-                    cleaned_urls.add("ftp://" + chunk)
+                    if is_url("ftp://" + chunk):
+                        cleaned_urls.add("ftp://" + chunk, bin=is_bin)
 
     return sorted(list(cleaned_urls))
     
@@ -91,12 +95,18 @@ def is_md5(value):
     except TypeError:
         return False
     
-def is_url(value):
+def is_url(value, bin=False):
     try:
-        if _url.match(value):
-            return True
+        if bin:
+            if _url_b.match(value):
+                return True
+            else:
+                return False
         else:
-            return False
+            if _url.match(value):
+                return True
+            else:
+                return False
     except TypeError:
         return False
     
