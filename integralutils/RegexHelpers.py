@@ -6,7 +6,9 @@ _email_utf8_encoded_string = re.compile(r'.*(\=\?UTF\-8\?B\?(.*)\?=).*')
 _email_address = re.compile(r'[a-zA-Z0-9._%+\-"]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9_-]{2,}')
 _ip = re.compile(r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)')
 _domain = re.compile(r'(((?=[a-zA-Z0-9-]{1,63}\.)[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63})')
-_url = re.compile(r'(((?:(?:https?|ftp)://)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_:\?]*)#?(?:[\.\!\/\\\w:%\?&;=-]*))?(?<!=))')
+_url_regex = r'(((?:(?:https?|ftp)://)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_:\?]*)#?(?:[\.\!\/\\\w:%\?&;=-]*))?(?<!=))'
+_url = re.compile(_url_regex)
+_url_b = re.compile(_url_regex.encode())
 _md5 = re.compile(r'^[a-fA-F0-9]{32}$')
 _sha1 = re.compile(r'^[a-fA-F0-9]{40}$')
 _sha256 = re.compile(r'^[a-fA-F0-9]{64}$')
@@ -33,8 +35,19 @@ def decode_utf_b64_string(value):
         return value
 
 def find_urls(value):
-    urls = _url.findall(value)
-    unescaped_urls = [html.unescape(url[0]) for url in urls]
+    is_str = isinstance(value, str)
+
+    if is_str:
+        regex_pattern = _url
+    else:
+        regex_pattern = _url_b
+
+    urls = regex_pattern.findall(value)
+
+    if not is_str:
+        unescaped_urls = [html.unescape(url[0].decode('ascii', errors='ignore')) for url in urls]
+    else:
+        unescaped_urls = [html.unescape(url[0]) for url in urls]
     
     cleaned_urls = set()
     
