@@ -1,17 +1,13 @@
 import os
 import re
 from urllib.parse import urlsplit
-import configparser
 
-class Whitelist:
+from integralutils.BaseLoader import *
+
+class Whitelist(BaseLoader):
     def __init__(self, config_path=None):
-        # If we weren't given a config_path, assume we're loading
-        # the one shipped with integralutils.
-        if not config_path:
-            config_path = os.path.join(os.path.dirname(__file__), "etc", "config.ini")
-
-        self.config = configparser.ConfigParser()
-        self.config.read(config_path)
+        # Run the super init to inherit attributes and load the config.
+        super().__init__(config_path=config_path)
 
         # This will read your config file and create class variables
         # named <section>_<key>. For example, if your config file has

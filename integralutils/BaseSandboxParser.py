@@ -1,24 +1,15 @@
 import json
 import configparser
 
+from integralutils.BaseLoader import *
 from integralutils import RegexHelpers
 from integralutils import Indicator
+from integralutils import Whitelist
 
-class BaseSandboxParser():
-    def __init__(self, config_path=None, requests_verify=True):
-        # If we weren't given a config_path, assume we're loading
-        # the one shipped with integralutils.
-        if not config_path:
-            config_path = os.path.join(os.path.dirname(__file__), "etc", "config.ini")
-
-        self.config = configparser.ConfigParser()
-        self.config.read(config_path)
-
-        # Check if we are verifying HTTPS requests.
-        if "ca_cert" in self.config["Requests"]:
-            self.requests_verify = self.config["Requests"]["ca_cert"]
-        else:
-            self.requests_verify = requests_verify
+class BaseSandboxParser(BaseLoader):
+    def __init__(self, json_path=None, config_path=None):
+        # Run the super init to inherit attributes and load the config.
+        super().__init__(config_path=config_path)
         
         self.iocs                 = []
         self.sandbox_name         = ""
@@ -47,11 +38,45 @@ class BaseSandboxParser():
         self.created_services     = []
         self.started_services     = []
         
+        # Load a whitelister object.
+        self.whitelister = Whitelist.Whitelist(config_path=config_path)
+        
+        # Load the report's JSON.
+        if json_path:
+            self.report = self.load_json(json_path)
+        
+    def __eq__(self, other):
+        if isinstance(other, BaseSandboxParser):
+            return (self.md5 == other.md5) and (self.sandbox_url == other.sandbox_url)
+        else:
+            return False
+            
+    def __hash__(self):
+        return hash((self.md5, self.sandbox_url))
+        
     # Function to load and return the report's JSON.
     def load_json(self, json_path):
         with open(json_path) as j:
             return json.load(j)
-    
+
+    def is_cuckoo(self):
+        if self.parse(self.report, "target", "file", "md5"):
+            return True
+        else:
+            return False
+        
+    def is_vxstream(self):
+        if self.parse(self.report, "analysis", "general", "digests", "md5"):
+            return True
+        else:
+            return False
+        
+    def is_wildfire(self):
+        if self.parse(self.report, "wildfire", "file_info", "md5"):
+            return True
+        else:
+            return False
+
     # Generic function used to parse JSON keys.
     def parse(self, json_dict, *json_keys, error=""):
         for key in json_keys:
@@ -405,7 +430,11 @@ class BaseSandboxParser():
         try:
             for host in contacted_hosts:
                 if isinstance(host, ContactedHost):
-                    self._contacted_hosts.append(host)
+                    if not self.whitelister.is_ip_whitelisted(host.ipv4):
+                        host.associated_domains_string = ""
+                        for domain in host.associated_domains:
+                            host.associated_domains_string += domain["domain"] + " (" + domain["date"] + ") "
+                        self._contacted_hosts.append(host)
         except TypeError:
             pass
         
@@ -417,10 +446,42 @@ class BaseSandboxParser():
     def dropped_files(self, dropped_files):
         self._dropped_files = []
         
+        # Check if there are any dropped file restrictions in the config.
+        dropped_file_names = []
+        if "dropped_file_names" in self.config["BaseSandboxParser"]:
+            dropped_file_names = self.config["BaseSandboxParser"]["dropped_file_names"].split(",")
+
+        dropped_file_types = []
+        if "dropped_file_types" in self.config["BaseSandboxParser"]:
+            dropped_file_types = self.config["BaseSandboxParser"]["dropped_file_types"].split(",")
+
         try:
             for file in dropped_files:
                 if isinstance(file, DroppedFile):
-                    self._dropped_files.append(file)
+                    if not self.whitelister.is_file_name_whitelisted(file.filename):
+                        if not self.whitelister.is_file_path_whitelisted(file.path):
+                            # If there are file name restrictions, check if this file matches.
+                            if dropped_file_names:
+                                if any(name in file.filename for name in dropped_file_names):
+                                    if file.md5:
+                                        if not file in self._dropped_files:
+                                            self._dropped_files.append(file)
+                                    else:
+                                        # Append the dropped file if there is not already one with the same name.
+                                        if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
+                                            self._dropped_files.append(file)
+
+                            # If there are any file type restrictions, check if this file matches.
+                            if dropped_file_types:
+                                if any(t in file.type for t in dropped_file_types):
+                                    if file.md5:
+                                        if not file in self._dropped_files:
+                                            self._dropped_files.append(file)
+                                    else:
+                                        # Append the dropped file if there is not already one with the same name.
+                                        if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
+                                            self._dropped_files.append(file)
+
         except TypeError:
             pass
         
@@ -435,7 +496,9 @@ class BaseSandboxParser():
         try:
             for request in http_requests:
                 if isinstance(request, HttpRequest):
-                    self._http_requests.append(request)
+                    url = "http://" + request.host + request.uri
+                    if not self.whitelister.is_url_whitelisted(url):
+                        self._http_requests.append(request)
         except TypeError:
             pass
         
@@ -450,7 +513,15 @@ class BaseSandboxParser():
         try:
             for request in dns_requests:
                 if isinstance(request, DnsRequest):
-                    self._dns_requests.append(request)
+                    if not self.whitelister.is_domain_whitelisted(request.request):
+                        if RegexHelpers.is_ip(request.answer):
+                            if not self.whitelister.is_ip_whitelisted(request.answer):
+                                self._dns_requests.append(request)
+                        elif RegexHelpers.is_domain(request.answer):
+                            if not self.whitelister.is_domain_whitelisted(request.answer):
+                                self._dns_requests.append(request)
+                        else:
+                            self._dns_requests.append(request)
         except TypeError:
             pass
         
@@ -475,13 +546,15 @@ class BaseSandboxParser():
         
         # If we were given a single string, add that.
         if RegexHelpers.is_url(str(process_tree_urls)):
-            self._process_tree_urls.append(str(process_tree_urls))
+            if not self.whitelister.is_url_whitelisted(str(process_tree_urls)):
+                self._process_tree_urls.append(str(process_tree_urls))
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for url in process_tree_urls:
                     if RegexHelpers.is_url(str(url)):
-                        self._process_tree_urls.append(str(url))
+                        if not self.whitelister.is_url_whitelisted(str(url)):
+                            self._process_tree_urls.append(str(url))
             except TypeError:
                 pass
             
@@ -515,13 +588,15 @@ class BaseSandboxParser():
         
         # If we were given a single string, add that.
         if RegexHelpers.is_url(str(strings_urls)):
-            self._strings_urls.append(str(strings_urls))
+            if not self.whitelister.is_url_whitelisted(str(strings_urls)):
+                self._strings_urls.append(str(strings_urls))
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for url in strings_urls:
                     if RegexHelpers.is_url(str(url)):
-                        self._strings_urls.append(str(url))
+                        if not self.whitelister.is_url_whitelisted(str(url)):
+                            self._strings_urls.append(str(url))
             except TypeError:
                 pass
             
@@ -535,13 +610,15 @@ class BaseSandboxParser():
         
         # If we were given a single string, add that.
         if RegexHelpers.is_url(str(memory_urls)):
-            self._memory_urls.append(str(memory_urls))
+            if not self.whitelister.is_url_whitelisted(str(memory_urls)):
+                self._memory_urls.append(str(memory_urls))
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for url in memory_urls:
                     if RegexHelpers.is_url(str(url)):
-                        self._memory_urls.append(str(url))
+                        if not self.whitelister.is_url_whitelisted(str(url)):
+                            self._memory_urls.append(str(url))
             except TypeError:
                 pass
             
@@ -555,13 +632,15 @@ class BaseSandboxParser():
         
         # If we were given a single string, add that.
         if isinstance(mutexes, str):
-            self._mutexes.append(mutexes)
+            if not self.whitelister.is_mutex_whitelisted(mutexes):
+                self._mutexes.append(mutexes)
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for mutex in mutexes:
                     if isinstance(mutex, str):
-                        self._mutexes.append(mutex)
+                        if not self.whitelister.is_mutex_whitelisted(mutex):
+                            self._mutexes.append(mutex)
             except TypeError:
                 pass
             
@@ -645,6 +724,99 @@ class BaseSandboxParser():
             except TypeError:
                 pass
 
+# Function that takes a list of BaseSandboxParser sub-classes and
+# balls them all up into a single report with deduped attributes
+# (for example it will dedup all of the HTTP requests from the reports).
+def dedup_reports(report_list):
+    dedup_report = BaseSandboxParser()
+
+    dedup_report.filename = "Unknown Filename"
+    dedup_report.process_tree_list = []
+
+    for report in report_list:
+        if issubclass(type(report), BaseSandboxParser):
+            # Check if the filename is set and it is not WildFire's "sample".
+            if report.filename and report.filename != "sample":
+                dedup_report.filename = report.filename
+
+            if report.md5:
+                dedup_report.md5 = report.md5
+
+            if report.sha1:
+                dedup_report.sha1 = report.sha1
+
+            if report.sha256:
+                dedup_report.sha256 = report.sha256
+
+            if report.sha512:
+                dedup_report.sha512 = report.sha512
+
+            if report.ssdeep:
+                dedup_report.ssdeep = report.ssdeep
+
+            if report.malware_family:
+                dedup_report.malware_family = report.malware_family
+
+            # Dedup the contacted hosts.
+            for host in report.contacted_hosts:
+                if host not in dedup_report.contacted_hosts:
+                    dedup_report.contacted_hosts.append(host)
+
+            # Dedup the dropped files.
+            for file in report.dropped_files:
+                if file not in dedup_report.dropped_files:
+                    dedup_report.dropped_files.append(file)
+
+            # Dedup the HTTP requests.
+            for request in report.http_requests:
+                if request not in dedup_report.http_requests:
+                    dedup_report.http_requests.append(request)
+
+            # Dedup the DNS requests.
+            for request in report.dns_requests:
+                if request not in dedup_report.dns_requests:
+                    dedup_report.dns_requests.append(request)
+
+            # Dedup the process tree URLs.
+            for url in report.process_tree_urls:
+                if url not in dedup_report.process_tree_urls:
+                    dedup_report.process_tree_urls.append(url)
+
+            # Dedup the memory URLs.
+            for url in report.memory_urls:
+                if url not in dedup_report.memory_urls:
+                    dedup_report.memory_urls.append(url)
+
+            # Dedup the strings URLs.
+            for url in report.strings_urls:
+                if url not in dedup_report.strings_urls:
+                    dedup_report.strings_urls.append(url)
+
+            # Dedup the mutexes.
+            for mutex in report.mutexes:
+                if mutex not in dedup_report.mutexes:
+                    dedup_report.mutexes.append(mutex)
+
+            # Dedup the resolved APIs.
+            for api in report.resolved_apis:
+                if api not in dedup_report.resolved_apis:
+                    dedup_report.resolved_apis.append(api)
+
+            # Dedup the created services.
+            for service in report.created_services:
+                if service not in dedup_report.created_services:
+                    dedup_report.created_services.append(service)
+
+            # Dedup the started services.
+            for service in report.started_services:
+                if service not in dedup_report.started_services:
+                    dedup_report.started_services.append(service)
+
+            # Finally, just add the process tree as-is.
+            dedup_report.process_tree_list.append(str(report.process_tree))
+
+    return dedup_report
+    
 # These are "standard" versions of various things a sandbox
 # report might have. They help to access and display the
 # sandbox report data in a consisent manor.
@@ -863,11 +1035,14 @@ class DroppedFile():
         self.ssdeep = ""
         
     def __hash__(self):
-        return hash(self.filename+self.path+self.size+self.type+self.md5+self.sha1+self.sha256+self.sha512+self.ssdeep)
+        return hash(self.filename+self.md5)
     
     def __eq__(self, other):
         if isinstance(other, DroppedFile):
-            return self.filename == other.filename and self.path == other.path and self.size == other.size and self.type == other.type and self.md5 == other.md5 and self.sha1 == other.sha1 and self.sha256 == other.sha256 and self.sha512 == other.sha512 and self.ssdeep == other.ssdeep
+            if self.md5 and other.md5:
+                return self.md5 == other.md5
+            else:
+                return self.filename == other.filename
         else:
             return False
         

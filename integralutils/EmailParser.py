@@ -40,6 +40,10 @@ class EmailParser():
         # A place to store the IOCs.
         self.iocs = []
         
+        # Where did this alert come from? This could be anything, such as
+        # a URL to an ACE alert or whatever other reference you want.
+        self.reference = ""
+        
         # Find the envelope from/to addresses. This will only work if given an
         # "smtp.stream" file, since otherwise the SMTP commands will not exist.
         self.envelope_from = ""
@@ -153,6 +157,8 @@ class EmailParser():
         
         # Get any e-mail attachments.
         self.attachments = parsed_email["attachments"]
+        self.attachments_string = ", ".join([attach["name"] for attach in self.attachments])
+        self.md5_string = ", ".join([attach["md5"] for attach in self.attachments])
         
         # Make an Indicator for the from address.
         try:
@@ -210,6 +216,7 @@ class EmailParser():
 
         # Make an Indicator for each to address.
         self.to_list = [x[1] for x in self._get_address_list("to")]
+        self.to_string = ", ".join(self.to_list).replace("\t", " ")
         for address in self.to_list:
             try:
                 ind = Indicator.Indicator(address, "Email - Address")
@@ -222,6 +229,7 @@ class EmailParser():
             
         # Make an Indicator for each CC address.
         self.cc_list = [x[1] for x in self._get_address_list("cc")]
+        self.cc_string = ", ".join(self.cc_list).replace("\t", " ")
         for address in self.cc_list:
             try:
                 ind = Indicator.Indicator(address, "Email - Address")
@@ -234,6 +242,7 @@ class EmailParser():
         
         # Make an Indicator for each BCC address.
         self.bcc_list = [x[1] for x in self._get_address_list("bcc")]
+        self.bcc_string = ", ".join(self.bcc_list).replace("\t", " ")
         for address in self.bcc_list:
             try:
                 ind = Indicator.Indicator(address, "Email - Address")
