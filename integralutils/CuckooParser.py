@@ -46,9 +46,13 @@ class CuckooParser(BaseSandboxParser):
         self.started_services = self.parse_started_services()
         self.strings = self.parse_strings()
         self.strings_urls = self.parse_strings_urls()
+        self.all_urls = self.get_all_urls()
         
         # Extract the IOCs.
         self.extract_indicators()
+        
+        # Get rid of the JSON report to save space.
+        del self.report
 
     def parse_sandbox_url(self):
         return self.base_url + "/analysis/" + self.sample_id + "/"

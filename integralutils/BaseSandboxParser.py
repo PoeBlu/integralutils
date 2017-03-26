@@ -88,6 +88,16 @@ class BaseSandboxParser(BaseLoader):
                 return error
         return json_dict
     
+    def get_all_urls(self):
+        all_urls = []
+        all_urls += self.process_tree_urls
+        all_urls += self.memory_urls
+        all_urls += self.strings_urls
+        for request in self.http_requests:
+            all_urls += "http://" + request.host + request.uri
+        return sorted(list(set(all_urls)))
+        
+    
     # Build a list of Indicators from the report.
     def extract_indicators(self, check_whitelist=True):
         # Make an Indicator for the sample's MD5 hash.

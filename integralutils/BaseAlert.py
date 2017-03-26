@@ -47,12 +47,14 @@ class BaseAlert(BaseLoader):
         for sample in self.sandbox:
             self.sandbox[sample].sort(key=lambda x: x.sandbox_url)
         
+    """
     def add_email(self, rfc822_path):
         if isinstance(rfc822_path, str):
             if os.path.exists(rfc822_path):
                 mime = self.get_file_mimetype(rfc822_path)
                 if "rfc822" in mime:
                     self.email = EmailParser.EmailParser(smtp_path=rfc822_path)
+    """
                 
     def add_sandbox(self, json_path):
         if isinstance(json_path, str):

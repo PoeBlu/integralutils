@@ -119,11 +119,13 @@ class ACEAlert(BaseAlert):
                             # At this point, assume this is a sandbox report. Try to add it.
                             sandbox_json_path = os.path.join(root, file)
                             self.add_sandbox(sandbox_json_path)
-                            
+        
+        """
         # Add any sandbox IOCs to our main IOC list.
         for sample in self.sandbox:
             for report in self.sandbox[sample]:
                 self.iocs += report.iocs
+        """
 
     def get_all_analysis_paths(self, ace_module):
         analysis_paths = []

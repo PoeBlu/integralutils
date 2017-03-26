@@ -42,9 +42,13 @@ class WildfireParser(BaseSandboxParser):
         self.process_tree = self.parse_process_tree()
         self.process_tree_urls = self.parse_process_tree_urls()
         self.mutexes = self.parse_mutexes()
+        self.all_urls = self.get_all_urls()
         
         # Extract the IOCs.
         self.extract_indicators()
+        
+        # Get rid of the JSON report to save space.
+        del self.report
 
     def parse_sandbox_url(self):
         if self.sha256:

@@ -11,6 +11,7 @@ from integralutils import ACEAlert
 from integralutils import Indicator
 from integralutils import EmailParser
 from integralutils import RegexHelpers
+from integralutils import Whitelist
 from integralutils.BaseConfluencePage import *
 
 class ConfluenceEventPage(BaseConfluencePage):
@@ -24,7 +25,10 @@ class ConfluenceEventPage(BaseConfluencePage):
         # If not, use the one bundled with integralutils.
         else:
             template_path = os.path.join(os.path.dirname(__file__), "etc", "confluence_event_template.txt")
-                        
+
+        # Spin up a whitelist object.
+        self.whitelister = Whitelist.Whitelist(config_path=config_path)
+        
         # If the page does not exist, spin up the template.
         if not self.page_exists():
             self.soup = self.soupify(open(template_path).read())
@@ -38,11 +42,11 @@ class ConfluenceEventPage(BaseConfluencePage):
         # Create the parent div tag.
         div = self.new_tag("div")
         
-        # Add the header tag.
+        # Add the headself.whitelister = Whitelist.Whitelist(config_path=config_path)self.whitelister = Whitelist.Whitelist(config_path=config_path)er tag.
         header = self.new_tag("h1", parent=div)
         header.string = "Time Table"
         
-        # Create a new table tag.
+        # Creatprint("self.sandbox = " + str(self.sandbox))e a new table tag.
         table = self.new_tag("table", parent=div)
                 
         # Loop over the existing table values to build the new table.
@@ -150,6 +154,14 @@ class ConfluenceEventPage(BaseConfluencePage):
         
         # Continue the section if we were given some potential indicators.
         if potential_indicators:
+            # Make the section header.
+            header = self.new_tag("h2", parent=div)
+            header.string = "CRITS Analysis"
+
+            # Set up the pre tag to hold the results.
+            pre = self.new_tag("pre", parent=div)
+            pre.string = ""
+                            
             # Create the connection to the CRITS Mongo database.
             host = self.config["ConfluenceEventPage"]["crits_mongo_host"]
             port = int(self.config["ConfluenceEventPage"]["crits_mongo_port"])
@@ -165,15 +177,7 @@ class ConfluenceEventPage(BaseConfluencePage):
 
                         # Only continue if we got back at least 1 indicator.
                         if crits_indicators.count() > 0:
-                            div["style"] = "border:1px solid gray;padding:5px;"
-                            
-                            # Make the section header.
-                            header = self.new_tag("h2", parent=div)
-                            header.string = "CRITS Analysis"
-                            
-                            # Set up the pre tag to hold the results.
-                            pre = self.new_tag("pre", parent=div)
-                            pre.string = ""
+                            pre["style"] = "border:1px solid gray;padding:5px;"
                             
                             for crits_indicator in crits_indicators:
                                 # Get all of the indicator's unique references.
@@ -283,7 +287,6 @@ class ConfluenceEventPage(BaseConfluencePage):
     def update_phish_headers(self, email):
         # Create the parent div tag.
         div = self.new_tag("div")
-        div["style"] = "border:1px solid gray;padding:5px;"
         
         # Make the section header.
         header = self.new_tag("h2", parent=div)
@@ -292,6 +295,7 @@ class ConfluenceEventPage(BaseConfluencePage):
         # Continue the section if we were given an email.
         if isinstance(email, EmailParser.EmailParser):
             pre = self.new_tag("pre", parent=div)
+            pre["style"] = "border:1px solid gray;padding:5px;"
             pre.string = email.headers
 
         self.update_section(div, old_section_id="phish_headers")
@@ -300,7 +304,6 @@ class ConfluenceEventPage(BaseConfluencePage):
     def update_phish_body(self, email):
         # Create the parent div tag.
         div = self.new_tag("div")
-        div["style"] = "border:1px solid gray;padding:5px;"
         
         # Make the section header.
         header = self.new_tag("h2", parent=div)
@@ -309,6 +312,7 @@ class ConfluenceEventPage(BaseConfluencePage):
         # Continue the section if we were given an email.
         if isinstance(email, EmailParser.EmailParser):
             pre = self.new_tag("pre", parent=div)
+            pre["style"] = "border:1px solid gray;padding:5px;"
             if email.body:
                 pre.string = email.body
             elif email.html:
@@ -380,21 +384,26 @@ class ConfluenceEventPage(BaseConfluencePage):
     def update_url_analysis(self, url_list):
         # Create the parent div tag.
         div = self.new_tag("div")
-        div["style"] = "border:1px solid gray;padding:5px;"
         
-        # Make the section header.
-        header = self.new_tag("h2", parent=div)
-        header.string = "URL Analysis"
+        # Get only the non-whitelisted URLs.
+        url_list = [url for url in url_list if not self.whitelister.is_url_whitelisted(url)]
         
-        # Make the pre tag to hold the URLs.
-        pre = self.new_tag("pre", parent=div)
-        pre.string = ""
-        
-        # Continue the section if we were given an email.
-        for url in url_list:
-            pre.string += url + "\n"
+        if url_list:
+            # Make the section header.
+            header = self.new_tag("h2", parent=div)
+            header.string = "URL Analysis"
 
-        self.update_section(div, old_section_id="url_analysis")
+            # Make the pre tag to hold the URLs.
+            pre = self.new_tag("pre", parent=div)
+            pre["style"] = "border:1px solid gray;padding:5px;"
+            pre.string = ""
+
+            # Continue the section if we were given an email.
+            for url in url_list:
+
+                pre.string += url + "\n"
+
+            self.update_section(div, old_section_id="url_analysis")
     
     def update_sandbox_analysis(self, sandbox_dict):
         # Get a working copy of the sandbox analysis section.
@@ -535,7 +544,6 @@ class ConfluenceEventPage(BaseConfluencePage):
 
                     # Create a new parent div for the sub-section.
                     mutexes_div = self.new_tag("div")
-                    mutexes_div["style"] = "border:1px solid gray;padding:5px;"
 
                     # Add a header tag for the mutexes.
                     header = self.new_tag("h4", parent=mutexes_div)
@@ -543,6 +551,7 @@ class ConfluenceEventPage(BaseConfluencePage):
                     
                     # Add a pre tag to hold them.
                     pre = self.new_tag("pre", parent=mutexes_div)
+                    pre["style"] = "border:1px solid gray;padding:5px;"
                     pre.string = ""
                     
                     for mutex in dedup_report.mutexes:
@@ -814,7 +823,6 @@ class ConfluenceEventPage(BaseConfluencePage):
 
                     # Create a new parent div for the sub-section.
                     process_div = self.new_tag("div")
-                    process_div["style"] = "border:1px solid gray;padding:5px;"
 
                     # Add a header tag for the mutexes.
                     header = self.new_tag("h4", parent=process_div)
@@ -822,6 +830,7 @@ class ConfluenceEventPage(BaseConfluencePage):
                     
                     # Add a pre tag to hold them.
                     pre = self.new_tag("pre", parent=process_div)
+                    pre["style"] = "border:1px solid gray;padding:5px;"
                     pre.string = ""
                     
                     for tree in dedup_report.process_tree_list:

@@ -43,9 +43,13 @@ class VxstreamParser(BaseSandboxParser):
         self.resolved_apis = self.parse_resolved_apis()
         self.strings = self.parse_strings()
         self.strings_urls = self.parse_strings_urls()
+        self.all_urls = self.get_all_urls()
         
         # Extract the IOCs.
         self.extract_indicators()
+        
+        # Get rid of the JSON report to save space.
+        del self.report
 
     def parse_sandbox_url(self):
         return self.base_url + "/sample/" + str(self.sha256) + "?environmentId=" + str(self.sample_id)

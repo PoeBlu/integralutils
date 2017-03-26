@@ -189,26 +189,28 @@ class BaseConfluencePage(ConfluenceConnector):
                 self.cache_page()
 
     def commit_page(self):
-        if self.page_exists():
-            # Use the self.soup as the source for the page text.
-            page_id = self.get_page_id()
-            page_current_version = self.get_page_version()
-            #cached_page_text = self.get_page_text()
-            cached_page_text = str(self.soup)
+        if not self.page_exists() and self.soup:
+            self.create_page(str(self.soup))
 
+        # Use the self.soup as the source for the page text.
+        page_id = self.get_page_id()
+        page_current_version = self.get_page_version()
+        #cached_page_text = self.get_page_text()
+        cached_page_text = str(self.soup)
+
+        if self.debug:
+            print("commit_page attempting to commit:")
+            print(cached_page_text)
+
+        # Perform the API call to update the page.
+        data = {'type': 'page', 'id': page_id, 'title': self.page_title, 'space': {'key': self.space_key}, 'body': {'storage': {'value': cached_page_text, 'representation': 'storage'}}, 'version': {'number': page_current_version+1}}
+        r = requests.put(self.api_url + "/" + page_id, auth=(self.username, self.password), data=json.dumps(data), headers=({'Content-Type':'application/json'}), verify=self.requests_verify)
+
+        # If the call was successful, cache the page.
+        if self._validate_request(r, error_msg="Error with commit_page Confluence API query."):
             if self.debug:
-                print("commit_page attempting to commit:")
-                print(cached_page_text)
-
-            # Perform the API call to update the page.
-            data = {'type': 'page', 'id': page_id, 'title': self.page_title, 'space': {'key': self.space_key}, 'body': {'storage': {'value': cached_page_text, 'representation': 'storage'}}, 'version': {'number': page_current_version+1}}
-            r = requests.put(self.api_url + "/" + page_id, auth=(self.username, self.password), data=json.dumps(data), headers=({'Content-Type':'application/json'}), verify=self.requests_verify)
-            
-            # If the call was successful, cache the page.
-            if self._validate_request(r, error_msg="Error with commit_page Confluence API query."):
-                if self.debug:
-                    print("commit_page updating cached page.")
-                self.cache_page()
+                print("commit_page updating cached page.")
+            self.cache_page()
                 
     def attach_file(self, file_path):
         if self.page_exists():
