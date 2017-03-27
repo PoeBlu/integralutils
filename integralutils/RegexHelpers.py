@@ -1,6 +1,8 @@
 import re
 import base64
 import html
+from bs4 import BeautifulSoup
+import quopri
 
 _email_utf8_encoded_string = re.compile(r'.*(\=\?UTF\-8\?B\?(.*)\?=).*')
 _email_address = re.compile(r'[a-zA-Z0-9._%+\-"]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9_-]{2,}')
@@ -52,6 +54,19 @@ def find_urls(value):
     
     cleaned_urls = set()
     
+    # Try to convert what we were given to soup and search for URLs.
+    if is_bin:
+        decoded_value = value.decode("utf-8", errors="ignore")
+    else:
+        decoded_value = value
+    unquoted = quopri.decodestring(decoded_value)
+    soup = BeautifulSoup(unquoted, "html.parser")
+    tags = soup.find_all(href=True)
+    for tag in tags:
+        url = tag["href"]
+        url = re.sub("\s+", "", url)
+        unescaped_urls.append(url)
+
     # Check for embedded URLs inside other URLs.
     for url in unescaped_urls:
         cleaned_urls.add(url)

@@ -498,9 +498,9 @@ class EmailParser():
             if attachment:
                 attachments.append(attachment)
             elif part.get_content_type() == "text/plain":
-                body += part.get_payload(decode=True).decode(charset)
+                body += part.get_payload(decode=True).decode(charset, errors="ignore")
             elif part.get_content_type() == "text/html":
-                html += part.get_payload(decode=True).decode(charset)
+                html += part.get_payload(decode=True).decode(charset, errors="ignore")
         return {
             'body' : body,
             'html' : html,

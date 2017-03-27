@@ -767,6 +767,11 @@ def dedup_reports(report_list):
             if report.malware_family:
                 dedup_report.malware_family = report.malware_family
 
+            # Dedup the IOCs.
+            for ioc in report.iocs:
+                if ioc not in dedup_report.iocs:
+                    dedup_report.iocs.append(ioc)
+            
             # Dedup the contacted hosts.
             for host in report.contacted_hosts:
                 if host not in dedup_report.contacted_hosts:
