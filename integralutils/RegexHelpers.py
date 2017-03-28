@@ -3,14 +3,13 @@ import base64
 import html
 from bs4 import BeautifulSoup
 import quopri
+import warnings
 
 _email_utf8_encoded_string = re.compile(r'.*(\=\?UTF\-8\?B\?(.*)\?=).*')
 _email_address = re.compile(r'[a-zA-Z0-9._%+\-"]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9_-]{2,}')
 _ip = re.compile(r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)')
 _domain = re.compile(r'(((?=[a-zA-Z0-9-]{1,63}\.)[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63})')
-_url_regex = r'(((?:(?:https?|ftp)://)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_:\?]*)#?(?:[\.\!\/\\\w:%\?&;=-]*))?(?<!=))'
-_url = re.compile(_url_regex)
-_url_b = re.compile(_url_regex.encode())
+_url = re.compile(r'(((?:(?:https?|ftp)://)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_:\?]*)#?(?:[\.\!\/\\\w:%\?&;=-]*))?(?<!=))')
 _md5 = re.compile(r'^[a-fA-F0-9]{32}$')
 _sha1 = re.compile(r'^[a-fA-F0-9]{40}$')
 _sha256 = re.compile(r'^[a-fA-F0-9]{64}$')
@@ -37,35 +36,43 @@ def decode_utf_b64_string(value):
         return value
 
 def find_urls(value):
-    is_str = isinstance(value, str)
-    is_bin = not is_str
-
-    if is_str:
-        regex_pattern = _url
+    # If we weren't given a string, try to convert it to ascii
+    # since URLs should in theory be ascii anyway.
+    if not isinstance(value, str):
+        try:
+            value = value.decode("ascii", errors="ignore")
+        except AttributeError:
+            value = ""
     else:
-        regex_pattern = _url_b
-
-    urls = regex_pattern.findall(value)
-
-    if not is_str:
-        unescaped_urls = [html.unescape(url[0].decode('ascii', errors='ignore')) for url in urls]
-    else:
-        unescaped_urls = [html.unescape(url[0]) for url in urls]
+        value = bytes(value, "ascii", errors="ignore").decode("ascii", errors="ignore")
     
+    urls = _url.findall(value)
+    unescaped_urls = [html.unescape(url[0]) for url in urls]
     cleaned_urls = set()
     
     # Try to convert what we were given to soup and search for URLs.
-    if is_bin:
-        decoded_value = value.decode("utf-8", errors="ignore")
-    else:
-        decoded_value = value
-    unquoted = quopri.decodestring(decoded_value)
-    soup = BeautifulSoup(unquoted, "html.parser")
-    tags = soup.find_all(href=True)
-    for tag in tags:
-        url = tag["href"]
-        url = re.sub("\s+", "", url)
-        unescaped_urls.append(url)
+    # Try to de-quoted-printable the text.
+    try:
+        unquoted = quopri.decodestring(value)
+
+        soup = BeautifulSoup(unquoted, "html.parser")
+        # Find any href urls.
+        tags = soup.find_all(href=True)
+        for tag in tags:
+            url = tag["href"]
+            url = re.sub("\s+", "", url)
+            if is_url(url):
+                unescaped_urls.append(url)
+                
+        # Find any src urls.
+        tags = soup.find_all(src=True)
+        for tag in tags:
+            url = tag["src"]
+            url = re.sub("\s+", "", url)
+            if is_url(url):
+                unescaped_urls.append(url)
+    except:
+        pass
 
     # Check for embedded URLs inside other URLs.
     for url in unescaped_urls:
@@ -74,19 +81,19 @@ def find_urls(value):
         for chunk in url.split("http://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
-                    if is_url("http://" + chunk, bin=is_bin):
+                    if is_url("http://" + chunk):
                         cleaned_urls.add("http://" + chunk)
 
         for chunk in url.split("https://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
-                    if is_url("https://" + chunk, bin=is_bin):
+                    if is_url("https://" + chunk):
                         cleaned_urls.add("https://" + chunk)
                     
         for chunk in url.split("ftp://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
-                    if is_url("ftp://" + chunk, bin=is_bin):
+                    if is_url("ftp://" + chunk):
                         cleaned_urls.add("ftp://" + chunk)
 
     return sorted(list(cleaned_urls))
@@ -110,18 +117,22 @@ def is_md5(value):
     except TypeError:
         return False
     
-def is_url(value, bin=False):
+def is_url(value):
+    # If we weren't given a string, try to convert it to ascii
+    # since URLs should in theory be ascii anyway.
+    if not isinstance(value, str):
+        try:
+            value = value.decode("ascii", errors="ignore")
+        except AttributeError:
+            value = ""
+    else:
+        value = bytes(value, "ascii", errors="ignore").decode("ascii", errors="ignore")
+
     try:
-        if bin:
-            if _url_b.match(value):
-                return True
-            else:
-                return False
+        if _url.match(value):
+            return True
         else:
-            if _url.match(value):
-                return True
-            else:
-                return False
+            return False
     except TypeError:
         return False
     
