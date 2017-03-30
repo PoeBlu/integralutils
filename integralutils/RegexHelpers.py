@@ -3,7 +3,8 @@ import base64
 import html
 from bs4 import BeautifulSoup
 import quopri
-import warnings
+import contextlib
+import sys
 
 _email_utf8_encoded_string = re.compile(r'.*(\=\?UTF\-8\?B\?(.*)\?=).*')
 _email_address = re.compile(r'[a-zA-Z0-9._%+\-"]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9_-]{2,}')
@@ -15,6 +16,16 @@ _sha1 = re.compile(r'^[a-fA-F0-9]{40}$')
 _sha256 = re.compile(r'^[a-fA-F0-9]{64}$')
 _sha512 = re.compile(r'^[a-fA-F0-9]{128}$')
 _strings = re.compile(b'[^\x00-\x1F\x7F-\xFF]{4,}')
+
+class DummyFile(object):
+    def write(self, x): pass
+    
+@contextlib.contextmanager
+def nostderr():
+    save_stderr = sys.stderr
+    sys.stderr = DummyFile()
+    yield
+    sys.stderr = save_stderr
 
 def decode_utf_b64_string(value):
     match = _email_utf8_encoded_string.match(value)
@@ -45,14 +56,13 @@ def find_urls(value):
             value = ""
     else:
         value = bytes(value, "ascii", errors="ignore").decode("ascii", errors="ignore")
-    
+
     urls = _url.findall(value)
     unescaped_urls = [html.unescape(url[0]) for url in urls]
-    cleaned_urls = set()
-    
+
     # Try to convert what we were given to soup and search for URLs.
-    # Try to de-quoted-printable the text.
     try:
+        # Try to de-quoted-printable the text.
         unquoted = quopri.decodestring(value)
 
         soup = BeautifulSoup(unquoted, "html.parser")
@@ -63,7 +73,7 @@ def find_urls(value):
             url = re.sub("\s+", "", url)
             if is_url(url):
                 unescaped_urls.append(url)
-                
+
         # Find any src urls.
         tags = soup.find_all(src=True)
         for tag in tags:
@@ -75,28 +85,35 @@ def find_urls(value):
         pass
 
     # Check for embedded URLs inside other URLs.
+    all_urls = set()
     for url in unescaped_urls:
-        cleaned_urls.add(url)
-        
+        all_urls.add(url)
+
         for chunk in url.split("http://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
                     if is_url("http://" + chunk):
-                        cleaned_urls.add("http://" + chunk)
+                        all_urls.add("http://" + chunk)
 
         for chunk in url.split("https://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
                     if is_url("https://" + chunk):
-                        cleaned_urls.add("https://" + chunk)
-                    
+                        all_urls.add("https://" + chunk)
+
         for chunk in url.split("ftp://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
                     if is_url("ftp://" + chunk):
-                        cleaned_urls.add("ftp://" + chunk)
+                        all_urls.add("ftp://" + chunk)
 
-    return sorted(list(cleaned_urls))
+    # Try and remove any URLs that look like partial versions of other URLs.
+    unique_urls = set()
+    for url in all_urls:
+        if not any(other_url.startswith(url) and other_url != url for other_url in all_urls):
+            unique_urls.add(url)
+    
+    return sorted(list(unique_urls))
     
 def find_strings(value):
     matches = _strings.findall(value)

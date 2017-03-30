@@ -1,10 +1,27 @@
 import json
+import re
 import configparser
 
 from integralutils.BaseLoader import *
 from integralutils import RegexHelpers
 from integralutils import Indicator
 from integralutils import Whitelist
+
+def detect_sandbox(json_path):
+    sandbox_names = re.compile(r'(cuckoo)|(vxstream)|(wildfire)')
+    matches = sandbox_names.findall(json_path)
+    if matches:
+        last_match = matches[-1]
+        if "cuckoo" in last_match:
+            return "cuckoo"
+        elif "vxstream" in last_match:
+            return "vxstream"
+        elif "wildfire" in last_match:
+            return "wildfire"
+        else:
+            return ""
+    
+    return ""
 
 class BaseSandboxParser(BaseLoader):
     def __init__(self, json_path=None, config_path=None):
@@ -90,11 +107,14 @@ class BaseSandboxParser(BaseLoader):
     
     def get_all_urls(self):
         all_urls = []
-        all_urls += self.process_tree_urls
-        all_urls += self.memory_urls
-        all_urls += self.strings_urls
+        all_urls += list(self.process_tree_urls)
+        all_urls += list(self.memory_urls)
+        all_urls += list(self.strings_urls)
         for request in self.http_requests:
-            all_urls += "http://" + request.host + request.uri
+            url = "http://" + request.host + request.uri
+            if RegexHelpers.is_url(url):
+                all_urls.append(url)
+
         return sorted(list(set(all_urls)))
         
     

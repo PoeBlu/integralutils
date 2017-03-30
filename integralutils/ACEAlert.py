@@ -92,6 +92,13 @@ class ACEAlert(BaseAlert):
                         url = url[:-1]
                     self.urls.add(url)
                     
+        # Try and remove any URLs that look like partial versions of other URLs.
+        unique_urls = set()
+        for url in self.urls:
+            if not any(other_url.startswith(url) and other_url != url for other_url in self.urls):
+                unique_urls.add(url)
+        self.urls = sorted(list(unique_urls))
+                    
         # Make Indicators for any URLs that ACE extracted.
         indicator_list = Indicator.generate_url_indicators(self.urls)
         
@@ -119,13 +126,6 @@ class ACEAlert(BaseAlert):
                             # At this point, assume this is a sandbox report. Try to add it.
                             sandbox_json_path = os.path.join(root, file)
                             self.add_sandbox(sandbox_json_path)
-        
-        """
-        # Add any sandbox IOCs to our main IOC list.
-        for sample in self.sandbox:
-            for report in self.sandbox[sample]:
-                self.iocs += report.iocs
-        """
 
     def get_all_analysis_paths(self, ace_module):
         analysis_paths = []

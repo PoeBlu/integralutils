@@ -46,33 +46,19 @@ class BaseAlert(BaseLoader):
         # are displayed in a consistent order for anything using them.
         for sample in self.sandbox:
             self.sandbox[sample].sort(key=lambda x: x.sandbox_url)
-        
-    """
-    def add_email(self, rfc822_path):
-        if isinstance(rfc822_path, str):
-            if os.path.exists(rfc822_path):
-                mime = self.get_file_mimetype(rfc822_path)
-                if "rfc822" in mime:
-                    self.email = EmailParser.EmailParser(smtp_path=rfc822_path)
-    """
                 
     def add_sandbox(self, json_path):
         if isinstance(json_path, str):
             if os.path.exists(json_path):
-                # Since it is not fully reliable to use the path to figure
-                # out which type of sandbox parser to use, try all of them.
-                base_report = BaseSandboxParser.BaseSandboxParser(json_path=json_path)
+                sandbox_name = BaseSandboxParser.detect_sandbox(json_path)
                 sandbox_report = None
-                
-                if base_report.is_cuckoo():
+                if sandbox_name == "cuckoo":
                     sandbox_report = CuckooParser.CuckooParser(json_path, config_path=self.config_path)
-                    
-                elif base_report.is_vxstream():
+                elif sandbox_name == "vxstream":
                     sandbox_report = VxstreamParser.VxstreamParser(json_path, config_path=self.config_path)
-                    
-                elif base_report.is_wildfire():
+                elif sandbox_name == "wildfire":
                     sandbox_report = WildfireParser.WildfireParser(json_path, config_path=self.config_path)
-                    
+                
                 # Continue if we successfully parsed a sandbox report.
                 if sandbox_report:
                     # Check if this sample has already been added to the sandbox dictionary.
