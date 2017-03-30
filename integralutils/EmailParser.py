@@ -333,57 +333,20 @@ class EmailParser():
         except IndexError:
             self.x_sender_ip = ""
         
-        # Make Indicators for any URLs in the plaintext body.
-        # Indicator.generate_url_indicators() catches its own exceptions.
+        # Find any URLs in the plaintext body.
         text_urls = RegexHelpers.find_urls(self.body)
-        """
-        text_urls_indicators = Indicator.generate_url_indicators(text_urls)
-        for ind in text_urls_indicators:
-            ind.add_tags(["phish", "plaintext_body"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
-        """
         
-        # Make Indicators for any URLs in the HTML body.
+        # Find any URLs in the HTML body.
         html_urls = RegexHelpers.find_urls(self.html)
-        """
-        html_urls_indicators = Indicator.generate_url_indicators(html_urls)
-        for ind in html_urls_indicators:
-            ind.add_tags(["phish", "html_body"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
-        """
             
-        # Make Indicators for any URLs in the visible text HTML body.
+        # Find any URLs in the visible text HTML body.
         visible_html_urls = RegexHelpers.find_urls(self.visible_html)
-        """
-        visible_html_urls_indicators = Indicator.generate_url_indicators(visible_html_urls)
-        for ind in visible_html_urls_indicators:
-            ind.add_tags(["phish", "visible_html_body"])
-            if self.from_address:
-                ind.add_relationships(self.from_address)
-            self.iocs.append(ind)
-        """
         
         # Make Indicators for different attachment attributes.
         strings_urls = []
         for file in self.attachments:
             if "strings_urls" in file:
                 strings_urls += file["strings_urls"]
-
-            """
-            # Make Indicators for any strings URLs.
-            if "strings_urls" in file:
-                attachment_strings_urls_indicators = Indicator.generate_url_indicators(file["strings_urls"])
-                for ind in attachment_strings_urls_indicators:
-                    ind.add_tags(["phish", "strings_url", file["name"]])
-                    if self.from_address:
-                        ind.add_relationships([self.from_address, file["name"]])
-                    self.iocs.append(ind)
-                all_urls += file["strings_urls"]
-            """
                 
             # Make an Indicator for the filename.
             if file["name"]:
@@ -432,20 +395,52 @@ class EmailParser():
                 except ValueError:
                     pass
 
-        # Parse the URLs and prevent "duplicate" URLs
-        # like http://blah.com/ and http://blah.com
+        # Try and remove any URLs that look like partial versions of other URLs.
         all_urls = text_urls + html_urls + visible_html_urls + strings_urls
-        print("\n".join(all_urls))
-        all_urls = RegexHelpers.find_urls("\n".join(all_urls))
-        print()
-        print()
-        print("\n".join(all_urls))
+        unique_urls = set()
         for url in all_urls:
-            # Strip off the ending slash if it's there.
-            if url.endswith("/"):
-                url = url[:-1]
+            if not any(other_url.startswith(url) and other_url != url for other_url in all_urls):
+                unique_urls.add(url)
+        
+        self.urls = sorted(list(unique_urls))
+        
+        # Now make indicators for each of the types of URLs but
+        # only do so if they appear in self.urls. Doing so ensures
+        # that we don't create any indicators for partial URLs.
+        text_urls = [url for url in text_urls if url in self.urls]
+        text_urls_indicators = Indicator.generate_url_indicators(text_urls)
+        for ind in text_urls_indicators:
+            ind.add_tags(["phish", "plaintext_body"])
+            if self.from_address:
+                ind.add_relationships(self.from_address)
+            self.iocs.append(ind)
             
-            self.urls.add(url)
+        html_urls = [url for url in html_urls if url in self.urls]
+        html_urls_indicators = Indicator.generate_url_indicators(html_urls)
+        for ind in html_urls_indicators:
+            ind.add_tags(["phish", "html_body"])
+            if self.from_address:
+                ind.add_relationships(self.from_address)
+            self.iocs.append(ind)
+            
+        visible_html_urls = [url for url in visible_html_urls if url in self.urls]
+        visible_html_urls_indicators = Indicator.generate_url_indicators(visible_html_urls)
+        for ind in visible_html_urls_indicators:
+            ind.add_tags(["phish", "visible_html_body"])
+            if self.from_address:
+                ind.add_relationships(self.from_address)
+            self.iocs.append(ind)
+            
+        for file in self.attachments:
+            # Make Indicators for any strings URLs.
+            if "strings_urls" in file:
+                strings_urls = [url for url in file["strings_urls"] if url in self.urls]
+                attachment_strings_urls_indicators = Indicator.generate_url_indicators(strings_urls)
+                for ind in attachment_strings_urls_indicators:
+                    ind.add_tags(["phish", "strings_url", file["name"]])
+                    if self.from_address:
+                        ind.add_relationships([self.from_address, file["name"]])
+                    self.iocs.append(ind)
                         
         self.received_time = self._get_received_time()
         
