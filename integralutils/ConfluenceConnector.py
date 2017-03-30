@@ -8,6 +8,7 @@ from integralutils.BaseLoader import *
 
 class ConfluenceConnector(BaseLoader):
     def __init__(self, api_url=None, space_key=None, config_path=None):
+        print("ConfluenceConnector config = " + str(config_path))
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path)
             

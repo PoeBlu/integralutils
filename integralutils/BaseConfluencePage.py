@@ -7,6 +7,7 @@ from integralutils.ConfluenceConnector import *
 
 class BaseConfluencePage(ConfluenceConnector):
     def __init__(self, page_title, parent_title=None, config_path=None):
+        print("BaseConfluencePage config = " + str(config_path))
         # Run the super init to load the config.
         super().__init__(config_path=config_path)
 

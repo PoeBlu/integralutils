@@ -16,6 +16,7 @@ from integralutils.BaseConfluencePage import *
 
 class ConfluenceEventPage(BaseConfluencePage):
     def __init__(self, page_title, parent_title=None, config_path=None):
+        print("ConfluenceEventPage config = " + str(config_path))
         # Run the super init to load the config and cache the page if it exists.
         super().__init__(page_title, parent_title=parent_title, config_path=config_path)
 
