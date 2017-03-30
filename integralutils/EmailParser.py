@@ -336,35 +336,44 @@ class EmailParser():
         # Make Indicators for any URLs in the plaintext body.
         # Indicator.generate_url_indicators() catches its own exceptions.
         text_urls = RegexHelpers.find_urls(self.body)
+        """
         text_urls_indicators = Indicator.generate_url_indicators(text_urls)
         for ind in text_urls_indicators:
             ind.add_tags(["phish", "plaintext_body"])
             if self.from_address:
                 ind.add_relationships(self.from_address)
             self.iocs.append(ind)
-        RegexHelpers.find_urls(self.html)
+        """
         
         # Make Indicators for any URLs in the HTML body.
         html_urls = RegexHelpers.find_urls(self.html)
+        """
         html_urls_indicators = Indicator.generate_url_indicators(html_urls)
         for ind in html_urls_indicators:
             ind.add_tags(["phish", "html_body"])
             if self.from_address:
                 ind.add_relationships(self.from_address)
             self.iocs.append(ind)
+        """
             
         # Make Indicators for any URLs in the visible text HTML body.
         visible_html_urls = RegexHelpers.find_urls(self.visible_html)
+        """
         visible_html_urls_indicators = Indicator.generate_url_indicators(visible_html_urls)
         for ind in visible_html_urls_indicators:
             ind.add_tags(["phish", "visible_html_body"])
             if self.from_address:
                 ind.add_relationships(self.from_address)
             self.iocs.append(ind)
+        """
         
         # Make Indicators for different attachment attributes.
-        all_urls = text_urls + html_urls + visible_html_urls
+        strings_urls = []
         for file in self.attachments:
+            if "strings_urls" in file:
+                strings_urls += file["strings_urls"]
+
+            """
             # Make Indicators for any strings URLs.
             if "strings_urls" in file:
                 attachment_strings_urls_indicators = Indicator.generate_url_indicators(file["strings_urls"])
@@ -374,6 +383,7 @@ class EmailParser():
                         ind.add_relationships([self.from_address, file["name"]])
                     self.iocs.append(ind)
                 all_urls += file["strings_urls"]
+            """
                 
             # Make an Indicator for the filename.
             if file["name"]:
@@ -424,6 +434,12 @@ class EmailParser():
 
         # Parse the URLs and prevent "duplicate" URLs
         # like http://blah.com/ and http://blah.com
+        all_urls = text_urls + html_urls + visible_html_urls + strings_urls
+        print("\n".join(all_urls))
+        all_urls = RegexHelpers.find_urls("\n".join(all_urls))
+        print()
+        print()
+        print("\n".join(all_urls))
         for url in all_urls:
             # Strip off the ending slash if it's there.
             if url.endswith("/"):
