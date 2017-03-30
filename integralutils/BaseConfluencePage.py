@@ -65,7 +65,7 @@ class BaseConfluencePage(ConfluenceConnector):
     def get_labels(self):
         if self.page_exists():
             page_id = self.get_page_id()
-            r = requests.get(self.api_url + "/" + page_id + "/label", auth=(self.username, self.password), params=params, verify=self.requests_verify)
+            r = requests.get(self.api_url + "/" + page_id + "/label", auth=(self.username, self.password), verify=self.requests_verify)
             
             if self._validate_request(r, error_msg="Error with get_labels Confluence API query."):
                 j = json.loads(r.text)
