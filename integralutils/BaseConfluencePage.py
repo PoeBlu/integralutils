@@ -43,7 +43,7 @@ class BaseConfluencePage(ConfluenceConnector):
                     print("cache_page cached page '" + self.page_title + "'.")
             else:
                 self.cached_page = None
-                self.soup = BeautifulSoup()
+                self.soup = BeautifulSoup("", "html.parser")
                 
     def get_page_url(self):
         if self.page_exists():
@@ -143,6 +143,7 @@ class BaseConfluencePage(ConfluenceConnector):
                     new_section = body
             except IndexError:
                 print("error when tryign to update section.")
+                print(type(new_section))
                 print(new_section)
 
             if old_section_id:
