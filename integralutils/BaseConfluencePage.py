@@ -145,6 +145,8 @@ class BaseConfluencePage(ConfluenceConnector):
                 print("error when tryign to update section.")
                 print(type(new_section))
                 print(dir(new_section))
+                print("new_section.contents")
+                print(new_section.contents)
                 print(new_section)
 
             if old_section_id:
