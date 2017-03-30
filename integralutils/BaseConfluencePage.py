@@ -7,9 +7,9 @@ from integralutils.ConfluenceConnector import *
 
 class BaseConfluencePage(ConfluenceConnector):
     def __init__(self, page_title, parent_title=None, config_path=None):
-        print("BaseConfluencePage config = " + str(config_path))
         # Run the super init to load the config.
         super().__init__(config_path=config_path)
+        self.config_path = config_path
 
         self.page_title = page_title
         self.parent_title = parent_title
@@ -176,7 +176,7 @@ class BaseConfluencePage(ConfluenceConnector):
         if not self.page_exists():
             if self.parent_title:
                 # If we were given a parent title, create an object from it.
-                parent_page = BaseConfluencePage(self.parent_title)
+                parent_page = BaseConfluencePage(self.parent_title, config_path=self.config_path)
                 
                 if parent_page.page_exists():
                     parent_id = parent_page.get_page_id()
