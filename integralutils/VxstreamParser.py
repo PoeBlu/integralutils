@@ -49,7 +49,7 @@ class VxstreamParser(BaseSandboxParser):
         self.extract_indicators()
         
         # Get rid of the JSON report to save space.
-        del self.report
+        self.report = None
 
     def parse_sandbox_url(self):
         return self.base_url + "/sample/" + str(self.sha256) + "?environmentId=" + str(self.sample_id)

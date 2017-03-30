@@ -52,7 +52,7 @@ class CuckooParser(BaseSandboxParser):
         self.extract_indicators()
         
         # Get rid of the JSON report to save space.
-        del self.report
+        self.report = None
 
     def parse_sandbox_url(self):
         return self.base_url + "/analysis/" + self.sample_id + "/"

@@ -48,7 +48,7 @@ class WildfireParser(BaseSandboxParser):
         self.extract_indicators()
         
         # Get rid of the JSON report to save space.
-        del self.report
+        self.report = None
 
     def parse_sandbox_url(self):
         if self.sha256:
