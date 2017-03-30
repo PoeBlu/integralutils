@@ -62,6 +62,19 @@ class BaseConfluencePage(ConfluenceConnector):
         if self.page_exists():
             return self.cached_page["results"][0]["version"]["number"]
         
+    def get_labels(self):
+        if self.page_exists():
+            page_id = self.get_page_id()
+            r = requests.get(self.api_url + "/" + page_id + "/label", auth=(self.username, self.password), params=params, verify=self.requests_verify)
+            
+            if self._validate_request(r, error_msg="Error with get_labels Confluence API query."):
+                j = json.loads(r.text)
+                if j["results"]:
+                    labels = [label["name"] for label in j["results"]]
+                    return labels
+                
+        return []
+        
     def attachment_exists(self, filename):
         if self.page_exists():
             page_id = self.get_page_id()
