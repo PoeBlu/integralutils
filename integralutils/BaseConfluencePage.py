@@ -136,10 +136,14 @@ class BaseConfluencePage(ConfluenceConnector):
 
         if self.soup:
             # Check if we need to wrap the new section in the body tag.
-            if not new_section.contents[0].name == "ac:rich-text-body":
-                body = self.new_tag("ac:rich-text-body")
-                body.append(new_section)
-                new_section = body
+            try:
+                if not new_section.contents[0].name == "ac:rich-text-body":
+                    body = self.new_tag("ac:rich-text-body")
+                    body.append(new_section)
+                    new_section = body
+            except IndexError:
+                print("error when tryign to update section.")
+                print(new_section)
 
             if old_section_id:
                 # Get the current version of the section.
