@@ -17,5 +17,8 @@ setup(name='integralutils',
       #],
       package_data = {
             'integralutils': ['etc/*']
-      }
+      },
+      scripts = [
+            'bin/iu-findurls.py'
+      ]
 )
