@@ -15,7 +15,8 @@ _md5 = re.compile(r'^[a-fA-F0-9]{32}$')
 _sha1 = re.compile(r'^[a-fA-F0-9]{40}$')
 _sha256 = re.compile(r'^[a-fA-F0-9]{64}$')
 _sha512 = re.compile(r'^[a-fA-F0-9]{128}$')
-_strings = re.compile(b'[^\x00-\x1F\x7F-\xFF]{4,}')
+_strings = re.compile(b'[\x20-\x7E]{4,}')
+_widestrings = re.compile(b'(?:[\x20-\x7E]{1}\x00{1}){4,}')
 
 class DummyFile(object):
     def write(self, x): pass
@@ -116,8 +117,13 @@ def find_urls(value):
     return sorted(list(unique_urls))
     
 def find_strings(value):
-    matches = _strings.findall(value)
-    return [str(s, 'utf-8') for s in matches]
+    strings_matches = _strings.findall(value)
+    strings = [str(s, 'utf-8') for s in strings_matches]
+    
+    widestrings_matches = _widestrings.findall(value)
+    widestrings = [str(s, 'utf-8') for s in widestrings_matches]
+    
+    return strings + widestrings
 
 def find_ip_addresses(value):
     return _ip.findall(value)
