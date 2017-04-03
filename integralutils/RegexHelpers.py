@@ -119,7 +119,7 @@ def find_urls(value):
     unique_urls = list(unique_urls)
     for url in unique_urls[:]:
         parsed_url = urlparse(url)
-        if not is_domain(parsed_url.netloc):
+        if not is_domain(parsed_url.netloc) and not is_ip(parsed_url.netloc):
             unique_urls.remove(url)
     
     return sorted(unique_urls)
