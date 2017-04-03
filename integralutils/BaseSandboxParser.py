@@ -33,7 +33,7 @@ class BaseSandboxParser(BaseLoader):
         self.sandbox_display_name = ""
         self.sandbox_vm_name      = ""
         self.sandbox_url          = ""
-        self.screenshot_url       = ""
+        self.screenshot_path      = ""
         self.filename             = ""
         self.md5                  = ""
         self.sha1                 = ""
@@ -57,6 +57,12 @@ class BaseSandboxParser(BaseLoader):
         
         # Load a whitelister object.
         self.whitelister = Whitelist.Whitelist(config_path=config_path)
+        
+        # Figure out where we want to save the screenshots.
+        if "screenshot_repository" in self.config["BaseSandboxParser"]:
+            self.screenshot_repository = self.config["BaseSandboxParser"]["screenshot_repository"]
+        else:
+            self.screenshot_repository = None
         
         # Load the report's JSON.
         if json_path:

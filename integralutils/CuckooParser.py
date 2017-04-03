@@ -5,7 +5,7 @@ import configparser
 from integralutils.BaseSandboxParser import *
 
 class CuckooParser(BaseSandboxParser):          
-    def __init__(self, json_report_path, config_path=None):
+    def __init__(self, json_report_path, screenshot=True, config_path=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(json_report_path, config_path=config_path)
 
@@ -33,7 +33,8 @@ class CuckooParser(BaseSandboxParser):
         
         # The rest of the info requires a bit more parsing.
         self.sandbox_url = self.parse_sandbox_url()
-        self.screenshot_url = self.parse_screenshot_url()
+        if screenshot:
+            self.screenshot_path = self.download_screenshot()
         self.contacted_hosts = self.parse_contacted_hosts()
         self.dropped_files = self.parse_dropped_files()
         self.http_requests = self.parse_http_requests()
@@ -57,6 +58,29 @@ class CuckooParser(BaseSandboxParser):
     def parse_sandbox_url(self):
         return self.base_url + "/analysis/" + self.sample_id + "/"
     
+    def download_screenshot(self):
+        if self.screenshot_repository:
+            screenshot_path = os.path.join(self.screenshot_repository, "cuckoo_" + self.md5 + ".jpg")
+
+            if not os.path.exists(screenshot_path):
+                url = self.parse_screenshot_url()
+
+                if url:
+                    try:
+                        request = requests.get(url, allow_redirects=True, verify=self.requests_verify)
+
+                        if request.status_code == 200:
+                            with open(screenshot_path, "wb") as url_file:
+                                url_file.write(request.content)
+
+                            return screenshot_path
+                    except requests.exceptions.ConnectionError:
+                        return None
+            else:
+                return screenshot_path
+        
+        return None
+        
     def parse_screenshot_url(self):
         # The Cuckoo JSON does not tell us how many screenshots are available,
         # so we must perform a HTTP HEAD request loop until we no longer receive

@@ -468,7 +468,7 @@ class ConfluenceEventPage(BaseConfluencePage):
                 ##               ##
                 ###################
                 # Only continue if there are actually some screenshots.
-                if any(report.screenshot_url for report in sandbox_dict[hash]):
+                if any(report.screenshot_path for report in sandbox_dict[hash]):
                     # Make the new sub-section.
                     screenshot_section_id = "screenshot_" + hash
                     screenshot_section = self.make_section(screenshot_section_id, parent=div)
@@ -481,9 +481,28 @@ class ConfluenceEventPage(BaseConfluencePage):
                     header.string = "Screenshots"
 
                     for report in sandbox_dict[hash]:
-                        if report.screenshot_url:
-                            screenshot_name = "screenshot_" + report.md5 + "_" + report.sandbox_display_name
+                        if report.screenshot_path:
+                            #screenshot_name = "screenshot_" + report.md5 + "_" + report.sandbox_display_name
+                            screenshot_name = os.path.basename(report.screenshot_path)
+                            
+                            # Upload the screenshot as an attachment if it doesn't already exist.
+                            if not self.attachment_exists(screenshot_name):
+                                self.attach_file(report.screenshot_path)
+                                
+                            # If the screenshot attachment exists, add an img tag for it.
+                            if self.attachment_exists(screenshot_name):
+                                title_p = self.new_tag("p", parent=screenshots_div)
+                                title_p["style"] = "color:#009000; font-weight:bold;"
+                                title_p.string = report.sandbox_display_name + " - " + report.sandbox_vm_name
 
+                                img_p = self.new_tag("p", parent=screenshots_div)
+                                img = self.new_tag("img", parent=img_p)
+                                img["width"] = "1000"
+                                img["height"] = "562"
+                                src = "/download/attachments/" + str(self.get_page_id()) + "/" + screenshot_name + "?effects=border-simple,blur-border,tape"
+                                img["src"] = src
+                                
+                            """
                             try:
                                 # Download the screenshot image.
                                 request = requests.get(report.screenshot_url, verify=self.requests_verify)
@@ -515,6 +534,7 @@ class ConfluenceEventPage(BaseConfluencePage):
                                                 self.attach_file(screenshot_path)
                             except requests.exceptions.ConnectionError:
                                 pass
+                            
 
                             # If the screenshot attachment exists, add an img tag for it.
                             if self.attachment_exists(screenshot_name):
@@ -528,6 +548,7 @@ class ConfluenceEventPage(BaseConfluencePage):
                                 img["height"] = "562"
                                 src = "/download/attachments/" + str(self.get_page_id()) + "/" + screenshot_name + "?effects=border-simple,blur-border,tape"
                                 img["src"] = src
+                            """
 
                     self.update_section(screenshots_div, old_section_soup=screenshot_section)
                 
