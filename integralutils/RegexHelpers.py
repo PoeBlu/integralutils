@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import quopri
 import contextlib
 import sys
+from urllib.parse import urlparse
 
 _email_utf8_encoded_string = re.compile(r'.*(\=\?UTF\-8\?B\?(.*)\?=).*')
 _email_address = re.compile(r'[a-zA-Z0-9._%+\-"]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9_-]{2,}')
@@ -113,8 +114,15 @@ def find_urls(value):
     for url in all_urls:
         if not any(other_url.startswith(url) and other_url != url for other_url in all_urls):
             unique_urls.add(url)
+        
+    # Remove any URLs that do not appear to be valid.
+    unique_urls = list(unique_urls)
+    for url in unique_urls[:]:
+        parsed_url = urlparse(url)
+        if not is_domain(parsed_url.netloc):
+            unique_urls.remove(url)
     
-    return sorted(list(unique_urls))
+    return sorted(unique_urls)
     
 def find_strings(value):
     strings_matches = _strings.findall(value)
