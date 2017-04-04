@@ -57,7 +57,7 @@ class VxstreamParser(BaseSandboxParser):
     
     def download_screenshot(self):
         if self.screenshot_repository:
-            screenshot_path = os.path.join(self.screenshot_repository, "vxstream_" + self.md5 + ".png")
+            screenshot_path = os.path.join(self.screenshot_repository, self.md5 + "_vxstream.png")
 
             if not os.path.exists(screenshot_path):
                 url = self.parse_screenshot_url()
