@@ -19,6 +19,7 @@ setup(name='integralutils',
             'integralutils': ['etc/*']
       },
       scripts = [
-            'bin/iu-findurls.py'
+            'bin/iu-findurls.py',
+            'bin/iu-sandboxparser.py'
       ]
 )
