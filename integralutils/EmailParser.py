@@ -103,17 +103,18 @@ class EmailParser():
             # Walk the full e-mail's parts.
             for part in self._email_obj.walk():
                 # Continue if the part looks like a valid e-mail.
-                if part.get_content_type() == "message/rfc822" and "name" not in part.items() and "filename" not in part.items():
-                    # Split the part lines into a list.
-                    part_text = str(part).splitlines()
-                    
-                    # Make sure our part starts with the Received: headers.
-                    while not part_text[0].startswith("Received:"):
-                        part_text.pop(0)
-                    part_text = "\n".join(part_text)
-                        
-                    # Make the new e-mail object.
-                    self._email_obj = email.message_from_string(part_text)
+                if part.get_content_type() == "message/rfc822":
+                    if not any("Content-Disposition" in item for item in part.items()):                        
+                        # Split the part lines into a list.
+                        part_text = str(part).splitlines()
+
+                        # Make sure our part starts with the Received: headers.
+                        while not part_text[0].startswith("Received:"):
+                            part_text.pop(0)
+                        part_text = "\n".join(part_text)
+
+                        # Make the new e-mail object.
+                        self._email_obj = email.message_from_string(part_text)
 
         # Parse the e-mail object for its content.
         parsed_email = self._parse_content()
