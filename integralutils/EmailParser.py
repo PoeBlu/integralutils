@@ -103,7 +103,7 @@ class EmailParser():
             # Walk the full e-mail's parts.
             for part in self._email_obj.walk():
                 # Continue if the part looks like a valid e-mail.
-                if part.get_content_type() == "message/rfc822":
+                if part.get_content_type() == "message/rfc822" and "name" not in part.items() and "filename" not in part.items():
                     # Split the part lines into a list.
                     part_text = str(part).splitlines()
                     
