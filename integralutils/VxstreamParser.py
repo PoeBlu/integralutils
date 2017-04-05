@@ -37,6 +37,15 @@ class VxstreamParser(BaseSandboxParser):
         self.dropped_files = self.parse_dropped_files()
         self.http_requests = self.parse_http_requests()
         self.dns_requests = self.parse_dns_requests()
+        
+        # Fix the HTTP requests. VxStream seems to like to say the HTTP request
+        # was made using the IP address, but if there is a matching DNS request
+        # for this IP, swap in the domain name instead.
+        for http_request in self.http_requests:
+            for dns_request in self.dns_requests:
+                if http_request.host == dns_request.answer:
+                    http_request.host = dns_request.request
+        
         self.process_tree = self.parse_process_tree()
         self.process_tree_urls = self.parse_process_tree_urls()
         self.memory_urls = self.parse_memory_urls()
