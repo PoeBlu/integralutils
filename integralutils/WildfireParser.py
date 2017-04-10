@@ -87,6 +87,8 @@ class WildfireParser(BaseSandboxParser):
                     http_requests.add(r)
             except KeyError:
                 pass
+            except TypeError:
+                pass
         
         return list(http_requests)
     
@@ -120,6 +122,8 @@ class WildfireParser(BaseSandboxParser):
                 
                     dns_requests.add(r)
             except KeyError:
+                pass
+            except TypeError:
                 pass
         
         return list(dns_requests)
@@ -175,6 +179,8 @@ class WildfireParser(BaseSandboxParser):
                         pass
             except KeyError:
                 pass
+            except TypeError:
+                pass
         
         return list(dropped_files)
     
@@ -209,6 +215,8 @@ class WildfireParser(BaseSandboxParser):
                     contacted_hosts.add(h)
             except KeyError:
                 pass
+            except TypeError:
+                pass
             
             try:
                 hosts = report["network"]["UDP"]
@@ -233,6 +241,8 @@ class WildfireParser(BaseSandboxParser):
                 
                     contacted_hosts.add(h)
             except KeyError:
+                pass
+            except TypeError:
                 pass
         
         return list(contacted_hosts)
@@ -259,6 +269,8 @@ class WildfireParser(BaseSandboxParser):
                         process_list = walk_tree(process["child"]["process"], process_list, pid)
                     except KeyError:
                         pass
+                    except TypeError:
+                        pass
                 
             return process_list
 
@@ -272,6 +284,8 @@ class WildfireParser(BaseSandboxParser):
                     process_tree_to_use = process_tree
                     process_tree_to_use_size = process_tree_size
             except KeyError:
+                pass
+            except TypeError:
                 pass
 
         return walk_tree(process_json=process_tree_to_use)
@@ -304,6 +318,8 @@ class WildfireParser(BaseSandboxParser):
                     except TypeError:
                         pass
             except KeyError:
+                pass
+            except TypeError:
                 pass
         
         return sorted(list(mutexes))
