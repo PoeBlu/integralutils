@@ -104,10 +104,9 @@ class EmailParser():
             for part in self._email_obj.walk():
                 # Continue if the part looks like a valid e-mail.
                 if part.get_content_type() == "message/rfc822":
-                    if not any("Content-Disposition" in item for item in part.items()):                        
-                        # Split the part lines into a list.
-                        part_text = str(part).splitlines()
-
+                    # Split the part lines into a list.
+                    part_text = str(part).splitlines()
+                    if any("Received:" in line for line in part_text):
                         # Make sure our part starts with the Received: headers.
                         while not part_text[0].startswith("Received:"):
                             part_text.pop(0)
