@@ -190,8 +190,10 @@ class ConfluenceEventPage(BaseConfluencePage):
                                 references = sorted(list(references))
                                 source_names = sorted(list(source_names))
 
-                                # Only continue if this event's wiki page is not a reference.
-                                if not self.get_page_url() in references:
+                                # We only want to display the indicator if either:
+                                # 1) This wiki page is not a reference, OR 
+                                # 2) There are multiple references.
+                                if len(references) > 1 or not self.get_page_url() in references:
                                     # Extract the values we care about.
                                     ind_value = crits_indicator["value"]
                                     ind_type = crits_indicator["type"]
@@ -208,7 +210,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                                     pre.string += "Tags: " + ", ".join(ind_tags) + "\n"
                                     
                                     for reference in references:
-                                        pre.string += reference + "\n"
+                                        if not self.get_page_url() == reference:
+                                            pre.string += reference + "\n"
                                         
                                     pre.string += "\n"
             except ServerSelectionTimeoutError:
