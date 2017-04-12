@@ -485,7 +485,6 @@ class ConfluenceEventPage(BaseConfluencePage):
 
                     for report in sandbox_dict[hash]:
                         if report.screenshot_path:
-                            #screenshot_name = "screenshot_" + report.md5 + "_" + report.sandbox_display_name
                             screenshot_name = os.path.basename(report.screenshot_path)
                             
                             # Upload the screenshot as an attachment if it doesn't already exist.
@@ -504,55 +503,7 @@ class ConfluenceEventPage(BaseConfluencePage):
                                 img["height"] = "562"
                                 src = "/download/attachments/" + str(self.get_page_id()) + "/" + screenshot_name + "?effects=border-simple,blur-border,tape"
                                 img["src"] = src
-                                
-                            """
-                            try:
-                                # Download the screenshot image.
-                                request = requests.get(report.screenshot_url, verify=self.requests_verify)
-
-                                # If the request was successful, write it to a temp directory.
-                                if request.status_code == 200:
-                                    with tempfile.TemporaryDirectory() as temp_dir:
-                                        screenshot_path = os.path.join(temp_dir, screenshot_name)
-
-                                        with open(screenshot_path, "wb") as screenshot:
-                                            screenshot.write(request.content)
-
-                                        # Double check the mimetype of the screenshot to set the correct file extension.
-                                        mimetype = magic.from_file(screenshot_path, mime=True)
-                                        extension = ""
-                                        if "png" in mimetype:
-                                            extension = ".png"
-                                        if "jpeg" in mimetype:
-                                            extension = ".jpg"
-
-                                        # Only attempt to upload the screenshot if we have a valid extension.
-                                        if extension:
-                                            screenshot_name += extension
-                                            os.rename(screenshot_path, screenshot_path + extension)
-                                            screenshot_path = screenshot_path + extension
-
-                                            # Upload the screenshot as an attachment if it doesn't already exist.
-                                            if not self.attachment_exists(os.path.basename(screenshot_path)):
-                                                self.attach_file(screenshot_path)
-                            except requests.exceptions.ConnectionError:
-                                pass
-                            
-
-                            # If the screenshot attachment exists, add an img tag for it.
-                            if self.attachment_exists(screenshot_name):
-                                title_p = self.new_tag("p", parent=screenshots_div)
-                                title_p["style"] = "color:#009000; font-weight:bold;"
-                                title_p.string = report.sandbox_display_name + " - " + report.sandbox_vm_name
-
-                                img_p = self.new_tag("p", parent=screenshots_div)
-                                img = self.new_tag("img", parent=img_p)
-                                img["width"] = "1000"
-                                img["height"] = "562"
-                                src = "/download/attachments/" + str(self.get_page_id()) + "/" + screenshot_name + "?effects=border-simple,blur-border,tape"
-                                img["src"] = src
-                            """
-
+                                                            
                     self.update_section(screenshots_div, old_section_soup=screenshot_section)
                 
                 ###############

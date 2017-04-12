@@ -21,6 +21,7 @@ class ACEAlert(BaseAlert):
         self.type = self.json["type"]
         self.name = self.json["uuid"]
         self.description = self.json["description"]
+        self.company = self.json["company_name"]
         
         # Load the URL from the config file.
         self.alert_url = self.config["ACEAlert"]["alert_url"] + self.name
