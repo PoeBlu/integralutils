@@ -12,6 +12,7 @@ _email_address = re.compile(r'[a-zA-Z0-9._%+\-"]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9_-]{
 _ip = re.compile(r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)')
 _domain = re.compile(r'(((?=[a-zA-Z0-9-]{1,63}\.)[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63})')
 _url = re.compile(r'(((?:(?:https?|ftp)://)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_:\?]*)#?(?:[\.\!\/\\\w:%\?&;=-]*))?(?<!=))')
+_bitly_url = re.compile(r'https?://bit.ly/[a-zA-Z0-9]{7}')
 _md5 = re.compile(r'^[a-fA-F0-9]{32}$')
 _sha1 = re.compile(r'^[a-fA-F0-9]{40}$')
 _sha256 = re.compile(r'^[a-fA-F0-9]{64}$')
@@ -121,6 +122,18 @@ def find_urls(value):
         parsed_url = urlparse(url)
         if not is_domain(parsed_url.netloc) and not is_ip(parsed_url.netloc):
             unique_urls.remove(url)
+
+    # Try and specifically find any bit.ly URLs since these seem to be
+    # the URL of choice when embedded inside Google URLs.
+    for url in unique_urls[:]:
+        bitly_urls = _bitly_url.findall(url)
+        for bitly_url in bitly_urls:
+            unique_urls.append(bitly_url)
+
+    # Remove any trailing "."'s from the URLs.
+    for i in range(len(unique_urls)):
+        if unique_urls[i].endswith("."):
+            unique_urls[i] = unique_urls[i][:-1]
     
     return sorted(unique_urls)
     
