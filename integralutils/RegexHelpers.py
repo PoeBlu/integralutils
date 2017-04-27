@@ -131,9 +131,7 @@ def find_urls(value):
             unique_urls.append(bitly_url)
 
     # Remove any trailing "."'s from the URLs.
-    for i in range(len(unique_urls)):
-        if unique_urls[i].endswith("."):
-            unique_urls[i] = unique_urls[i][:-1]
+    unique_urls = [url[:-1] if url.endswith(".") else url for url in unique_urls]
     
     return sorted(unique_urls)
     

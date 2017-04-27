@@ -33,6 +33,18 @@ class ConfluenceEventPage(BaseConfluencePage):
         if not self.page_exists():
             self.soup = self.soupify(open(template_path).read())
 
+    def listify_section_table(self, section_id, horizontal_header=True):
+        section = self.get_section(section_id)
+        table_list = []
+        
+        if horizontal_header:
+            table = section.find("table")
+            for row in table.findAll("tr"):
+                row_list = [str(tag.string) for tag in row]
+                table_list.append(row_list)
+
+        return table_list
+
     def update_time_table(self, times_dict):
         # Get the existing time table and its data.
         existing_time_table = self.get_section("time_table")
@@ -46,7 +58,7 @@ class ConfluenceEventPage(BaseConfluencePage):
         header = self.new_tag("h1", parent=div)
         header.string = "Time Table"
         
-        # Creatprint("self.sandbox = " + str(self.sandbox))e a new table tag.
+        # Create a new table tag.
         table = self.new_tag("table", parent=div)
                 
         # Loop over the existing table values to build the new table.
@@ -749,7 +761,7 @@ class ConfluenceEventPage(BaseConfluencePage):
                     # Set up the table header row.
                     thead = self.new_tag("thead", parent=table)
                     tr = self.new_tag("tr", parent=thead)
-                    titles = ["VirusTotal", "Address", "Port", "Protocol", "Location", "Associated Domains"]
+                    titles = ["VirusTotal", "Tor Node", "Address", "Port", "Protocol", "Location", "Associated Domains"]
                     for title in titles:
                         th = self.new_tag("th", parent=tr)
                         th.string = title
@@ -764,6 +776,10 @@ class ConfluenceEventPage(BaseConfluencePage):
                         vt_url = "https://virustotal.com/en/ip-address/" + host.ipv4 + "/information/"
                         url["href"] = vt_url
                         url.string = "VT"
+
+                        td = self.new_tag("td", parent=tr)
+                        if self.whitelister.is_tor_node(host.ipv4):
+                            td.string = "True"
 
                         td = self.new_tag("td", parent=tr)
                         td.string = host.ipv4

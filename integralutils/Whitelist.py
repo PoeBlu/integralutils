@@ -35,6 +35,15 @@ class Whitelist(BaseLoader):
                         # Store the lines list at self.<section>_<key>
                         setattr(self, section_key, lines)
 
+    def is_tor_node(self, ip):
+        if hasattr(self, "Benignlists_tor_nodes"):
+            if ip in self.Benignlists_tor_nodes:
+                return True
+            else:
+                return False            
+        else:
+            return False
+
     def is_ip_whitelisted(self, ip):
         if hasattr(self, "Whitelists_ip"):
             for regex in self.Whitelists_ip:

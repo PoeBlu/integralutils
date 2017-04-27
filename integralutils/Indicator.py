@@ -5,7 +5,6 @@ import configparser
 from urllib.parse import urlsplit
 
 from integralutils import RegexHelpers
-from integralutils import Whitelist
 
 class Indicator:
     # This class is modeled after a CRITS indicator and the .csv file you could create to upload new indicators into CRITS.
@@ -127,43 +126,55 @@ def run_whitelist(indicator_list, config_path=None, extend_whitelist=True, merge
         config = configparser.ConfigParser()
         config.read(config_path)
         indicator_whitelists_dir = config["Indicator"]["whitelists_dir"]
-        indicator_benignlist_dir = config["Indicator"]["benignlist_dir"]
+        indicator_benignlists_dir = config["Indicator"]["benignlist_dir"]
         
         # List the whitelist directory to see which whitelists we have.
-        indicator_type_whitelist_files = os.listdir(indicator_whitelists_dir)
+        indicator_type_whitelists_dirs = os.listdir(indicator_whitelists_dir)
 
         # Keep a dictionary of all of the available whitelists.
         available_whitelists = {}
-        for indicator_type in indicator_type_whitelist_files:
-            with open(os.path.join(indicator_whitelists_dir, indicator_type)) as w:
-                lines = w.read().splitlines()
-                        
-                # Remove any lines that begin with #.
-                lines = [line for line in lines if not line.startswith("#")]
+        for indicator_type in indicator_type_whitelists_dirs:
+            indicator_type_path = os.path.join(indicator_whitelists_dir, indicator_type)
+            if os.path.isdir(indicator_type_path):
+                available_whitelists[indicator_type] = []
+                for whitelist in os.listdir(indicator_type_path):
+                    whitelist_path = os.path.join(indicator_type_path, whitelist)
 
-                # Remove any blank lines.
-                lines = [line for line in lines if line]
-                
-                # Store the regex lines in the dictionary.
-                available_whitelists[indicator_type] = lines
+                    with open(whitelist_path) as w:
+                        lines = w.read().splitlines()
+                                
+                        # Remove any lines that begin with #.
+                        lines = [line for line in lines if not line.startswith("#")]
+
+                        # Remove any blank lines.
+                        lines = [line for line in lines if line]
+                        
+                        # Store the regex lines in the dictionary.
+                        available_whitelists[indicator_type] += lines
 
         # List the benignlist directory to see which benignlists we have.
-        indicator_type_benignlist_files = os.listdir(indicator_benignlist_dir)
+        indicator_type_benignlists_dirs = os.listdir(indicator_benignlists_dir)
                       
         # Keep a dictionary of all of the available benignlists.
         available_benignlists = {}
-        for indicator_type in indicator_type_benignlist_files:
-            with open(os.path.join(indicator_benignlist_dir, indicator_type)) as b:
-                lines = b.read().splitlines()
-                        
-                # Remove any lines that begin with #.
-                lines = [line for line in lines if not line.startswith("#")]
+        for indicator_type in indicator_type_benignlists_dirs:
+            indicator_type_path = os.path.join(indicator_benignlists_dir, indicator_type)
+            if os.path.isdir(indicator_type_path):
+                available_benignlists[indicator_type] = []
+                for benignlist in os.listdir(indicator_type_path):
+                    benignlist_path = os.path.join(indicator_type_path, benignlist)
 
-                # Remove any blank lines.
-                lines = [line for line in lines if line]
-                
-                # Store the regex lines in the dictionary.
-                available_benignlists[indicator_type] = lines
+                    with open(benignlist_path) as b:
+                        lines = b.read().splitlines()
+                                
+                        # Remove any lines that begin with #.
+                        lines = [line for line in lines if not line.startswith("#")]
+
+                        # Remove any blank lines.
+                        lines = [line for line in lines if line]
+                        
+                        # Store the regex lines in the dictionary.
+                        available_benignlists[indicator_type] += lines
         
         # Loop over each indicator in the list and see if we have a
         # whitelist or benignlist to run against it.

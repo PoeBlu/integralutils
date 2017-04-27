@@ -160,6 +160,8 @@ class BaseSandboxParser(BaseLoader):
                 try:
                     ind = Indicator.Indicator(host.ipv4, "Address - ipv4-addr")
                     ind.add_tags("contacted_host")
+                    if self.whitelister.is_tor_node(host.ipv4):
+                        ind.add_tags("tor_node")
                     if host.protocol and host.port:
                         ind.add_tags(host.protocol + " " + host.port)
                     elif host.protocol and not host.port:
