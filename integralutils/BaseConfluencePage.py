@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+import logging
 from bs4 import BeautifulSoup
 
 from integralutils.ConfluenceConnector import *
@@ -9,6 +10,9 @@ class BaseConfluencePage(ConfluenceConnector):
     def __init__(self, page_title, parent_title=None, config_path=None):
         # Run the super init to load the config.
         super().__init__(config_path=config_path)
+
+        self.logger = logging.getLogger()
+
         self.config_path = config_path
 
         self.page_title = page_title

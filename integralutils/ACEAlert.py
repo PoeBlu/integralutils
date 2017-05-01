@@ -1,4 +1,5 @@
 import json
+import logging
 
 from integralutils.BaseAlert import *
 
@@ -7,11 +8,14 @@ class ACEAlert(BaseAlert):
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path)
         
+        self.logger = logging.getLogger()
+
         alert_json_path = os.path.join(alert_path, "data.json")
         alert_json_path = os.path.normpath(alert_json_path)
         
         with open(alert_json_path) as a:
             self.json = json.load(a)
+            self.logger.debug("Parsed ACE alert: " + alert_json_path)
             
         self.iocs = []
         self.source = ""
@@ -42,9 +46,14 @@ class ACEAlert(BaseAlert):
             if os.path.isfile(file_path):
                 mime = self.get_file_mimetype(os.path.join(self.path, file))
                 if "rfc822" in mime:
-                    email = EmailParser.EmailParser(smtp_path=file_path)
-                    email.reference = self.alert_url
-                    potential_emails.append(email)
+                    try:
+                        email = EmailParser.EmailParser(smtp_path=file_path)
+                        email.reference = self.alert_url
+                        potential_emails.append(email)
+                        self.logger.debug("Parsed e-mail: " + file_path)
+                    except Exception:
+                        self.logger.exception("Error parsing e-mail: " + file_path)
+                        raise
                     
         # Since ACE makes .header files that also appear as rfc822 files, pick the right one.
         if len(potential_emails) == 1:
@@ -95,6 +104,7 @@ class ACEAlert(BaseAlert):
                     if url.endswith("/"):
                         url = url[:-1]
                     self.urls.add(url)
+                    self.logger.debug("Added ACE extracted URL: " + url)
                     
         # Try and remove any URLs that look like partial versions of other URLs.
         unique_urls = set()

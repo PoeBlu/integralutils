@@ -4,14 +4,14 @@ import configparser
 
 from integralutils.BaseSandboxParser import *
 
-class CuckooParser(BaseSandboxParser):          
+class SpenderCuckooParser(BaseSandboxParser):          
     def __init__(self, json_report_path, screenshot=True, config_path=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(json_report_path, config_path=config_path)
 
         # Read some items the config file.
-        self.base_url = self.config["CuckooParser"]["base_url"]
-        self.sandbox_display_name = self.config["CuckooParser"]["sandbox_display_name"]
+        self.base_url = self.config["SpenderCuckooParser"]["base_url"]
+        self.sandbox_display_name = self.config["SpenderCuckooParser"]["sandbox_display_name"]
 
         self.report_directory = os.path.dirname(json_report_path)
         
@@ -164,7 +164,7 @@ class CuckooParser(BaseSandboxParser):
                 except KeyError: pass
             
                 # Technically, the Cuckoo JSON can have multiple answers listed,
-                # but we are only going to grab the first one, as most of the time
+                # burequests_verifyt we are only going to grab the first one, as most of the time
                 # there is only a single answer anyway.
                 try: r.answer = request["answers"][0]["data"]
                 except IndexError: pass
@@ -232,10 +232,7 @@ class CuckooParser(BaseSandboxParser):
         if contacted_hosts_json:
             for host in contacted_hosts_json:
                 h = ContactedHost()
-
-                h.ipv4 = host
                 
-                """ 
                 try: h.ipv4 = host["ip"]
                 except KeyError: pass
             
@@ -246,7 +243,6 @@ class CuckooParser(BaseSandboxParser):
                     if host["hostname"]:
                         h.add_associated_domain(host["hostname"])
                 except KeyError: pass
-                """
                 
                 # Only add the host if its IP was succesfully parsed.
                 if h.ipv4:
@@ -263,10 +259,9 @@ class CuckooParser(BaseSandboxParser):
                 process_list = ProcessList()
             
             for process in process_json:
-                #command = process["environ"]["CommandLine"]
-                command = process["command_line"]
+                command = process["environ"]["CommandLine"]
                 pid = process["pid"]
-                parent_pid = process["ppid"]
+                parent_pid = process["parent_id"]
                 new_process = Process(command, pid, parent_pid)
                 process_list.add_process(new_process)
                 process_list = walk_tree(process["children"], process_list)

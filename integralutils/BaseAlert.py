@@ -1,7 +1,9 @@
 import os
+import logging
 
 from integralutils.BaseLoader import *
 from integralutils import BaseSandboxParser
+from integralutils import SpenderCuckooParser
 from integralutils import CuckooParser
 from integralutils import VxstreamParser
 from integralutils import WildfireParser
@@ -12,7 +14,9 @@ class BaseAlert(BaseLoader):
     def __init__(self, config_path=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path)
-        
+
+        self.logger = logging.getLogger()        
+
         # A list of Indicator objects for the alert.
         self.iocs = []
         
@@ -50,14 +54,44 @@ class BaseAlert(BaseLoader):
     def add_sandbox(self, json_path):
         if isinstance(json_path, str):
             if os.path.exists(json_path):
-                sandbox_name = BaseSandboxParser.detect_sandbox(json_path)
+                try:
+                    sandbox_name = BaseSandboxParser.detect_sandbox(json_path)
+                except Exception:
+                    self.logger.exception("Error detecting sandbox: " + json_path)
+                    raise
+
                 sandbox_report = None
-                if sandbox_name == "cuckoo":
-                    sandbox_report = CuckooParser.CuckooParser(json_path, config_path=self.config_path)
+                if sandbox_name == "spendercuckoo":
+                    try:
+                        sandbox_report = SpenderCuckooParser.SpenderCuckooParser(json_path, config_path=self.config_path)
+                        self.logger.debug("Parsed Spender Cuckoo report: " + json_path)
+                    except Exception:
+                        self.logger.exception("Error parsing Spender Cuckoo report: " + json_path)
+                        raise
+
+                elif sandbox_name == "cuckoo":
+                    try:
+                        sandbox_report = CuckooParser.CuckooParser(json_path, config_path=self.config_path)
+                        self.logger.debug("Parsed Cuckoo report: " + json_path)
+                    except Exception:
+                        self.logger.exception("Error parsing Cuckoo report: " + json_path)
+                        raise
+
                 elif sandbox_name == "vxstream":
-                    sandbox_report = VxstreamParser.VxstreamParser(json_path, config_path=self.config_path)
+                    try:
+                        sandbox_report = VxstreamParser.VxstreamParser(json_path, config_path=self.config_path)
+                        self.logger.debug("Parsed VxStream report: " + json_path)
+                    except Exception:
+                        self.logger.exception("Error parsing VxStream report: " + json_path)
+                        raise
+
                 elif sandbox_name == "wildfire":
-                    sandbox_report = WildfireParser.WildfireParser(json_path, config_path=self.config_path)
+                    try:
+                        sandbox_report = WildfireParser.WildfireParser(json_path, config_path=self.config_path)
+                        self.logger.debug("Parsed Wildfire report: " + json_path)
+                    except Exception:
+                        self.logger.exception("Error parsing Wildfire report: " + json_path)
+                        raise
                 
                 # Continue if we successfully parsed a sandbox report.
                 if sandbox_report:

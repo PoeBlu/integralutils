@@ -1,5 +1,6 @@
 import json
 import re
+import logging
 import configparser
 
 from integralutils.BaseLoader import *
@@ -8,19 +9,50 @@ from integralutils import Indicator
 from integralutils import Whitelist
 
 def detect_sandbox(json_path):
-    sandbox_names = re.compile(r'(cuckoo)|(vxstream)|(wildfire)')
-    matches = sandbox_names.findall(json_path)
-    if matches:
-        last_match = matches[-1]
-        if "cuckoo" in last_match:
+    logger = logging.getLogger()
+
+    # Load the sandbox JSON.
+    logger.debug("Loading sandbox report JSON: " + json_path)
+    with open(json_path) as json_data:
+        report = json.load(json_data)
+
+    # Check for mainline Cuckoo.
+    try:
+        id_key = report["target"]["file"]["md5"]
+        if id_key and "malfamily" not in report:
+            logger.debug("Detected Cuckoo.")
             return "cuckoo"
-        elif "vxstream" in last_match:
+    except Exception:
+        pass
+
+    # Check for Spender Cuckoo.
+    try:
+        id_key = report["target"]["file"]["md5"]
+        if id_key and "malfamily" in report:
+            logger.debug("Detected Spender Cuckoo.")
+            return "spendercuckoo"
+    except Exception:
+        pass
+
+    # Check for VxStream.
+    try:
+        id_key = report["analysis"]["general"]["digests"]["md5"]
+        if id_key:
+            logger.debug("Detected VxStream.")
             return "vxstream"
-        elif "wildfire" in last_match:
+    except Exception:
+        pass
+
+    # Check for Wildfire.
+    try:
+        id_key = report["wildfire"]["file_info"]["md5"]
+        if id_key:
+            logger.debug("Detected Wildfire.")
             return "wildfire"
-        else:
-            return ""
-    
+    except Exception:
+        pass
+
+    logger.error("Unable to detect sandbox.")
     return ""
 
 class BaseSandboxParser(BaseLoader):
@@ -81,24 +113,6 @@ class BaseSandboxParser(BaseLoader):
     def load_json(self, json_path):
         with open(json_path) as j:
             return json.load(j)
-
-    def is_cuckoo(self):
-        if self.parse(self.report, "target", "file", "md5"):
-            return True
-        else:
-            return False
-        
-    def is_vxstream(self):
-        if self.parse(self.report, "analysis", "general", "digests", "md5"):
-            return True
-        else:
-            return False
-        
-    def is_wildfire(self):
-        if self.parse(self.report, "wildfire", "file_info", "md5"):
-            return True
-        else:
-            return False
 
     # Generic function used to parse JSON keys.
     def parse(self, json_dict, *json_keys, error=""):

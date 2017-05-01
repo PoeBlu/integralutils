@@ -3,6 +3,8 @@
 import os
 import argparse
 
+from integralutils import BaseSandboxParser
+from integralutils import SpenderCuckooParser
 from integralutils import CuckooParser
 from integralutils import VxstreamParser
 from integralutils import WildfireParser
@@ -30,7 +32,23 @@ def main():
         else:
             config_path = None
 
+        # Detect the sandbox.
+        sandbox_name = BaseSandboxParser.detect_sandbox(args.report_path)
+
         report = None
+        if sandbox_name == "spendercuckoo":
+            report = SpenderCuckooParser.SpenderCuckooParser(args.report_path, screenshot=False, config_path=config_path)
+
+        elif sandbox_name == "cuckoo":
+            report = CuckooParser.CuckooParser(args.report_path, screenshot=False, config_path=config_path)
+
+        elif sandbox_name == "vxstream":
+            report = VxstreamParser.VxstreamParser(args.report_path, screenshot=False, config_path=config_path)
+
+        elif sandbox_name == "wildfire":
+            report = WildfireParser.WildfireParser(args.report_path, config_path=config_path)
+
+        """
         try:
             report = CuckooParser.CuckooParser(args.report_path, screenshot=False, config_path=config_path)
         except ValueError:
@@ -45,7 +63,7 @@ def main():
             report = WildfireParser.WildfireParser(args.report_path, config_path=config_path)
         except ValueError:
             pass
-        
+        """
         
         if report:
             if args.indicators:
