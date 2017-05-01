@@ -1,5 +1,6 @@
 import os
 import email
+import logging
 import re
 from email.header import decode_header, make_header
 import base64
@@ -16,6 +17,8 @@ from integralutils import Whitelist
 
 class EmailParser():
     def __init__(self, smtp_path=None, smtp_text=None, attached_email=True, check_whitelist=True):
+        self.logger = logging.getLogger()
+
         # Check that we got at least an SMTP path or text:
         if not smtp_path and not smtp_text:
             raise ValueError("You must specify either an SMTP path or the SMTP text.")
@@ -28,6 +31,7 @@ class EmailParser():
                 self.path = smtp_path
                 self.name = os.path.basename(smtp_path)
 
+            self.logger.debug("Reading e-mail " + self.path)
             with open(self.path) as s:
                 smtp_stream = s.read().splitlines()
         else:
@@ -450,6 +454,15 @@ class EmailParser():
             
         # Finally merge the IOCs so we don't have any duplicates.
         self.iocs = Indicator.merge_duplicate_indicators(self.iocs)
+
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     def get_header(self, header_name):        
         return self._email_obj.get_all(header_name, [])

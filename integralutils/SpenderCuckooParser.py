@@ -1,5 +1,6 @@
 import os
 import requests
+import logging
 import configparser
 
 from integralutils.BaseSandboxParser import *
@@ -8,6 +9,9 @@ class SpenderCuckooParser(BaseSandboxParser):
     def __init__(self, json_report_path, screenshot=True, config_path=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(json_report_path, config_path=config_path)
+
+        self.logger = logging.getLogger()
+        self.logger.debug("Parsing Spender Cuckoo report " + json_report_path)
 
         # Read some items the config file.
         self.base_url = self.config["SpenderCuckooParser"]["base_url"]
@@ -20,6 +24,8 @@ class SpenderCuckooParser(BaseSandboxParser):
         self.md5 = self.parse(self.report, "target", "file", "md5")
         if not self.md5:
             raise ValueError("Unable to parse Cuckoo MD5 from: " + str(json_report_path))
+
+        self.logger.debug("Parsing Spender Cuckoo sample " + self.md5)
             
         # Parse some basic info directly from the report.
         self.sandbox_vm_name = self.parse(self.report, "info", "machine", "name")
@@ -55,6 +61,15 @@ class SpenderCuckooParser(BaseSandboxParser):
         # Get rid of the JSON report to save space.
         self.report = None
 
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
+
     def parse_sandbox_url(self):
         return self.base_url + "/analysis/" + self.sample_id + "/"
     
@@ -64,6 +79,7 @@ class SpenderCuckooParser(BaseSandboxParser):
 
             if not os.path.exists(screenshot_path):
                 url = self.parse_screenshot_url()
+                self.logger.debug("Downloading screenshot " + url)
 
                 if url:
                     try:
@@ -77,6 +93,7 @@ class SpenderCuckooParser(BaseSandboxParser):
                     except requests.exceptions.ConnectionError:
                         return None
             else:
+                self.logger.debug("Screenshot already exists " + screenshot_path)
                 return screenshot_path
         
         return None
@@ -87,6 +104,7 @@ class SpenderCuckooParser(BaseSandboxParser):
         # an image. After the loop is finished, we want to get the URL of the
         # largest image. Cuckoo uses a plain black background for the sandbox VM,
         # so the largest image should in theory have something interesting in it.
+        self.logger.debug("Picking best screenshot")
     
         # Start the HTTP HEAD loop with 0001
         image_int = 1
@@ -121,6 +139,8 @@ class SpenderCuckooParser(BaseSandboxParser):
             pass
     
     def parse_http_requests(self):
+        self.logger.debug("Parsing HTTP requests")
+
         http_requests = []
         http_requests_json = self.parse(self.report, "network", "http")
         
@@ -150,6 +170,8 @@ class SpenderCuckooParser(BaseSandboxParser):
         return http_requests
     
     def parse_dns_requests(self):
+        self.logger.debug("Parsing DNS requests")
+
         dns_requests = []
         dns_requests_json = self.parse(self.report, "network", "dns")
         
@@ -181,6 +203,8 @@ class SpenderCuckooParser(BaseSandboxParser):
         return dns_requests
 
     def parse_dropped_files(self):
+        self.logger.debug("Parsing dropped files")
+
         dropped_files = []
         dropped_files_json = self.parse(self.report, "dropped")
                                                 
@@ -226,6 +250,8 @@ class SpenderCuckooParser(BaseSandboxParser):
         return dropped_files
     
     def parse_contacted_hosts(self):
+        self.logger.debug("Parsing contacted hosts")
+
         contacted_hosts = []
         contacted_hosts_json = self.parse(self.report, "network", "hosts")
         
@@ -251,9 +277,12 @@ class SpenderCuckooParser(BaseSandboxParser):
         return contacted_hosts
     
     def parse_process_tree_urls(self):
+        self.logger.debug("Looking for URLs in the process tree")
         return RegexHelpers.find_urls(str(self.parse_process_tree()))
     
     def parse_process_tree(self):
+        self.logger.debug("Parsing process tree")
+
         def walk_tree(process_json=None, process_list=None):
             if not process_list:
                 process_list = ProcessList()
@@ -271,6 +300,8 @@ class SpenderCuckooParser(BaseSandboxParser):
         return walk_tree(process_json=self.parse(self.report, "behavior", "processtree"))
 
     def parse_mutexes(self):
+        self.logger.debug("Parsing mutexes")
+
         mutexes = set()
         mutexes_json = self.parse(self.report, "behavior", "summary", "mutexes")
         
@@ -281,6 +312,8 @@ class SpenderCuckooParser(BaseSandboxParser):
         return sorted(list(mutexes))
     
     def parse_resolved_apis(self):
+        self.logger.debug("Parsing resolved APIs")
+
         resolved_apis = set()
         resolved_apis_json = self.parse(self.report, "behavior", "summary", "resolved_apis")
         
@@ -291,6 +324,8 @@ class SpenderCuckooParser(BaseSandboxParser):
         return sorted(list(resolved_apis))
     
     def parse_created_services(self):
+        self.logger.debug("Parsing created services")
+
         created_services = set()
         created_services_json = self.parse(self.report, "behavior", "summary", "created_services")
         
@@ -301,6 +336,8 @@ class SpenderCuckooParser(BaseSandboxParser):
         return sorted(list(created_services))
     
     def parse_started_services(self):
+        self.logger.debug("Parsing started services")
+
         started_services = set()
         started_services_json = self.parse(self.report, "behavior", "summary", "started_services")
         
@@ -311,14 +348,10 @@ class SpenderCuckooParser(BaseSandboxParser):
         return sorted(list(started_services))
     
     def parse_strings_urls(self):
+        self.logger.debug("Looking for URLs in strings")
         return RegexHelpers.find_urls(self.parse_strings())
     
     def parse_strings(self):
+        self.logger.debug("Parsing strings")
         strings_json = self.parse(self.report, "strings")
         return "\n".join(strings_json)
-        
-        
-        
-        
-        
-        

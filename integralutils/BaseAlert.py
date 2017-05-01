@@ -50,6 +50,15 @@ class BaseAlert(BaseLoader):
         # are displayed in a consistent order for anything using them.
         for sample in self.sandbox:
             self.sandbox[sample].sort(key=lambda x: x.sandbox_url)
+
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
                 
     def add_sandbox(self, json_path):
         if isinstance(json_path, str):

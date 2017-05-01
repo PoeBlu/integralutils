@@ -1,4 +1,5 @@
 import os
+import logging
 import configparser
 import json
 import requests
@@ -14,6 +15,7 @@ class ConfluenceConnector(BaseLoader):
         # Check if we want debugging.
         if "debug" in self.config["ConfluenceConnector"]:
             if self.config["ConfluenceConnector"]["debug"].lower() == "true":
+                self.logger.debug("Setting debug status for ConfluenceConnector.")
                 self.debug = True
             else:
                 self.debug = False
@@ -51,11 +53,20 @@ class ConfluenceConnector(BaseLoader):
             else:
                 raise PermissionError("Your Confluence credentials file should have 600 permissions!")
 
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
+
     def _validate_request(self, request, error_msg='There was an error with the query.'):
         if request.status_code == 200:
             return True
         else:
             if self.debug:
-                print(request.text)
+                self.logger.error(request.text)
             raise ValueError(error_msg)
 

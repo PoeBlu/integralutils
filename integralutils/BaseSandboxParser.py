@@ -59,6 +59,8 @@ class BaseSandboxParser(BaseLoader):
     def __init__(self, json_path=None, config_path=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path)
+
+        self.logger = logging.getLogger()
         
         self.iocs                 = []
         self.sandbox_name         = ""
@@ -98,8 +100,18 @@ class BaseSandboxParser(BaseLoader):
         
         # Load the report's JSON.
         if json_path:
+            self.logger.debug("Loading sandbox JSON: " + json_path)
             self.report = self.load_json(json_path)
-        
+
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d) 
+
     def __eq__(self, other):
         if isinstance(other, BaseSandboxParser):
             return (self.md5 == other.md5) and (self.sandbox_url == other.sandbox_url)
@@ -780,7 +792,12 @@ class BaseSandboxParser(BaseLoader):
 # balls them all up into a single report with deduped attributes
 # (for example it will dedup all of the HTTP requests from the reports).
 def dedup_reports(report_list):
+    logger = logging.getLogger()
+    logger.debug("Deduping sandbox report list")
+
     dedup_report = BaseSandboxParser()
+    del dedup_report.logger
+    del dedup_report.whitelister
 
     dedup_report.filename = "Unknown Filename"
     dedup_report.process_tree_list = []

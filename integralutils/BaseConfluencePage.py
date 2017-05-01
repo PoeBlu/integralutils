@@ -44,11 +44,11 @@ class BaseConfluencePage(ConfluenceConnector):
             if j["results"]:
                 self.cached_page = j
                 self.soup = self.soupify(self.get_page_text())
-                if self.debug:
-                    print("cache_page cached page '" + self.page_title + "'.")
+                self.logger.debug("Cached Confluence page: " + self.page_title)
             else:
                 self.cached_page = None
                 self.soup = BeautifulSoup("", "html.parser")
+                self.logger.debug("Setting up blank cached page.")
                 
     def get_page_url(self):
         if self.page_exists():
@@ -166,10 +166,12 @@ class BaseConfluencePage(ConfluenceConnector):
             if old_section_id:
                 # Get the current version of the section.
                 section = self.get_section(old_section_id)
+                self.logger.debug("Updating Confluence section: " + old_section_id)
             elif old_section_soup:
                 if isinstance(old_section_soup, str):
                     old_section_soup = self.soupify(old_section_soup)
                 section = old_section_soup
+                self.logger.debug("Updating cached-only Confluence section.")
             
             # Update the section's body.
             section.find("ac:rich-text-body").replace_with(new_section)
@@ -206,8 +208,7 @@ class BaseConfluencePage(ConfluenceConnector):
             
             # If the call was successful, cache the page.
             if self._validate_request(r, error_msg="Unable to create page '" + self.page_title + "'."):
-                if self.debug:
-                    print("create_page updating cached page.")
+                self.logger.debug("Created Confluence page: " + self.page_title)
                 self.cache_page()
 
     def commit_page(self):
@@ -217,12 +218,7 @@ class BaseConfluencePage(ConfluenceConnector):
         # Use the self.soup as the source for the page text.
         page_id = self.get_page_id()
         page_current_version = self.get_page_version()
-        #cached_page_text = self.get_page_text()
         cached_page_text = str(self.soup)
-
-        if self.debug:
-            print("commit_page attempting to commit:")
-            print(cached_page_text)
 
         # Perform the API call to update the page.
         data = {'type': 'page', 'id': page_id, 'title': self.page_title, 'space': {'key': self.space_key}, 'body': {'storage': {'value': cached_page_text, 'representation': 'storage'}}, 'version': {'number': page_current_version+1}}
@@ -230,9 +226,12 @@ class BaseConfluencePage(ConfluenceConnector):
 
         # If the call was successful, cache the page.
         if self._validate_request(r, error_msg="Error with commit_page Confluence API query."):
-            if self.debug:
-                print("commit_page updating cached page.")
+            self.logger.debug("Commiting changes to Confluence page: " + self.page_title)
             self.cache_page()
+        else:
+            self.logger.error("Error commiting changes to Confluence page: " + self.page_title)
+            if self.debug:
+                self.logger.error(cached_page_text)
                 
     def attach_file(self, file_path):
         if self.page_exists():
@@ -242,6 +241,7 @@ class BaseConfluencePage(ConfluenceConnector):
                 attachment = {"file": open(file_path, "rb")}
                 r = requests.post(self.api_url + "/" + page_id + "/child/attachment", auth=(self.username, self.password), files=attachment, headers=({'X-Atlassian-Token':'nocheck'}), verify=self.requests_verify)
                 if self._validate_request(r, error_msg="Unable to upload attachment '" + file_path + "'."):
+                    self.logger.debug("Attached " + os.path.basename(file_path) + " to Confluence page " + self.page_title)
                     return True
                 else:
                     return False
@@ -254,9 +254,5 @@ class BaseConfluencePage(ConfluenceConnector):
             data = [{"prefix": "global", "name": label}]
             r = requests.post(self.api_url + "/" + page_id + "/label", auth=(self.username, self.password), data=json.dumps(data), headers=({'Content-Type':'application/json'}), verify=self.requests_verify)
             if self._validate_request(r, error_msg="Error with add_page_label Confluence API query."):
+                self.logger.debug("Added label '" + label + "' to Confluence page " + self.page_title)
                 return True
-    
-
-    
-
-    

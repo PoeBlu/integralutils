@@ -1,5 +1,6 @@
 import os
 import requests
+import logging
 import configparser
 
 from integralutils.BaseSandboxParser import *
@@ -8,6 +9,8 @@ class VxstreamParser(BaseSandboxParser):
     def __init__(self, json_report_path, screenshot=True, config_path=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(json_report_path, config_path=config_path)
+
+        self.logger = logging.getLogger()
         
         # Read some items the config file.
         self.base_url = self.config["VxstreamParser"]["base_url"]
@@ -20,6 +23,7 @@ class VxstreamParser(BaseSandboxParser):
         self.md5 = self.parse(self.report, "analysis", "general", "digests", "md5")
         if not self.md5:
             raise ValueError("Unable to parse VxStream MD5 from: " + str(json_report_path))
+        self.logger.debug("Parsing VxStream sample " + self.md5)
         
         # Parse some basic info directly from the report.
         self.filename = self.parse(self.report, "analysis", "general", "sample")
@@ -61,6 +65,15 @@ class VxstreamParser(BaseSandboxParser):
         # Get rid of the JSON report to save space.
         self.report = None
 
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
+
     def parse_sandbox_url(self):
         return self.base_url + "/sample/" + str(self.sha256) + "?environmentId=" + str(self.sample_id)
     
@@ -73,6 +86,7 @@ class VxstreamParser(BaseSandboxParser):
 
                 if url:
                     try:
+                        self.logger.debug("Downloading screenshot " + url)
                         request = requests.get(url, allow_redirects=True, verify=self.requests_verify)
 
                         if request.status_code == 200:
@@ -83,11 +97,14 @@ class VxstreamParser(BaseSandboxParser):
                     except requests.exceptions.ConnectionError:
                         return None
             else:
+                self.logger.debug("Screenshot already exists " + screenshot_path)
                 return screenshot_path
         
         return None
     
     def parse_screenshot_url(self):
+        self.logger.debug("Picking best screenshot")
+
         screenshot_files = self.parse(self.report, "analysis", "final", "imageprocessing", "image")
             
         # If the screenshot_files JSON is a dictionary, that means only
@@ -122,6 +139,8 @@ class VxstreamParser(BaseSandboxParser):
         return screenshot_url
     
     def parse_http_requests(self):
+        self.logger.debug("Parsing HTTP requests")
+
         http_requests = []
         http_requests_json = self.parse(self.report, "analysis", "runtime", "network", "httprequests", "request")
 
@@ -154,6 +173,8 @@ class VxstreamParser(BaseSandboxParser):
         return http_requests
     
     def parse_dns_requests(self):
+        self.logger.debug("Parsing DNS requests")
+
         dns_requests = []
         dns_requests_json = self.parse(self.report, "analysis", "runtime", "network", "domains", "domain")
 
@@ -182,6 +203,8 @@ class VxstreamParser(BaseSandboxParser):
         return dns_requests
 
     def parse_dropped_files(self):
+        self.logger.debug("Parsing dropped files")
+
         dropped_files = []
         dropped_files_json = self.parse(self.report, "analysis", "runtime", "dropped", "file")
                                                 
@@ -227,6 +250,8 @@ class VxstreamParser(BaseSandboxParser):
         return dropped_files
     
     def parse_contacted_hosts(self):
+        self.logger.debug("Parsing contacted hosts")
+
         contacted_hosts = []
         contacted_hosts_json = self.parse(self.report, "analysis", "runtime", "network", "hosts", "host")
         
@@ -266,9 +291,12 @@ class VxstreamParser(BaseSandboxParser):
         return contacted_hosts
     
     def parse_process_tree_urls(self):
+        self.logger.debug("Looking for URLs in process tree")
         return RegexHelpers.find_urls(str(self.parse_process_tree()))
     
     def parse_process_tree(self):
+        self.logger.debug("Parsing process tree")
+
         process_list = ProcessList()
         process_tree_json = self.parse(self.report, "analysis", "runtime", "targets", "target")
         
@@ -286,6 +314,7 @@ class VxstreamParser(BaseSandboxParser):
         return process_list
 
     def parse_memory_urls(self):
+        self.logger.debug("Parsing memory URLs")
         memory_urls = set()
         memory_urls_json = self.parse(self.report, "analysis", "hybridanalysis", "ipdomainstreams", "stream")
         
@@ -305,6 +334,8 @@ class VxstreamParser(BaseSandboxParser):
         return sorted(list(memory_urls))
     
     def parse_mutexes(self):
+        self.logger.debug("Parsing mutexes")
+
         mutex_list = set()
         process_tree_json = self.parse(self.report, "analysis", "runtime", "targets", "target")
         
@@ -327,6 +358,8 @@ class VxstreamParser(BaseSandboxParser):
         return sorted(list(mutex_list))
     
     def parse_resolved_apis(self):
+        self.logger.debug("Parsing resolved APIs")
+
         resolved_apis = set()
         hybrid_targets_json = self.parse(self.report, "analysis", "hybridanalysis", "targets", "target")
         
@@ -358,9 +391,11 @@ class VxstreamParser(BaseSandboxParser):
         return sorted(list(resolved_apis))
     
     def parse_strings_urls(self):
+        self.logger.debug("Looking for URLs in strings")
         return RegexHelpers.find_urls(self.parse_strings())
     
     def parse_strings(self):
+        self.logger.debug("Parsing strings")
         strings_json = self.parse(self.report, "analysis", "final", "strings", "string")
         strings_list = []
         
@@ -373,9 +408,3 @@ class VxstreamParser(BaseSandboxParser):
                 except KeyError: pass
             
         return "\n".join(strings_list)
-        
-        
-        
-        
-        
-        

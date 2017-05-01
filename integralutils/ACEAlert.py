@@ -15,7 +15,7 @@ class ACEAlert(BaseAlert):
         
         with open(alert_json_path) as a:
             self.json = json.load(a)
-            self.logger.debug("Parsed ACE alert: " + alert_json_path)
+            self.logger.debug("Parsing ACE alert: " + alert_json_path)
             
         self.iocs = []
         self.source = ""
@@ -47,10 +47,10 @@ class ACEAlert(BaseAlert):
                 mime = self.get_file_mimetype(os.path.join(self.path, file))
                 if "rfc822" in mime:
                     try:
+                        self.logger.debug("Parsing e-mail: " + file_path)
                         email = EmailParser.EmailParser(smtp_path=file_path)
                         email.reference = self.alert_url
                         potential_emails.append(email)
-                        self.logger.debug("Parsed e-mail: " + file_path)
                     except Exception:
                         self.logger.exception("Error parsing e-mail: " + file_path)
                         raise
@@ -140,6 +140,15 @@ class ACEAlert(BaseAlert):
                             # At this point, assume this is a sandbox report. Try to add it.
                             sandbox_json_path = os.path.join(root, file)
                             self.add_sandbox(sandbox_json_path)
+
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     def get_all_analysis_paths(self, ace_module):
         analysis_paths = []

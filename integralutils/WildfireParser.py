@@ -1,6 +1,7 @@
 import os
 import sys
 import requests
+import logging
 import configparser
 
 from integralutils.BaseSandboxParser import *
@@ -9,6 +10,8 @@ class WildfireParser(BaseSandboxParser):
     def __init__(self, json_report_path, config_path=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(json_report_path, config_path=config_path)
+
+        self.logger = logging.getLogger()
 
         self.report_directory = os.path.dirname(json_report_path)
         
@@ -20,6 +23,7 @@ class WildfireParser(BaseSandboxParser):
         self.md5 = self.parse(self.report, "wildfire", "file_info", "md5")
         if not self.md5:
             raise ValueError("Unable to parse Wildfire MD5 from: " + str(json_report_path))
+        self.logger.debug("Parsing Wildfire sample " + self.md5)
         
         # Most Wildfire values depend on this.
         self.reports_json = self.parse(self.report, "wildfire", "task_info", "report")
@@ -50,6 +54,15 @@ class WildfireParser(BaseSandboxParser):
         # Get rid of the JSON report to save space.
         self.report = None
 
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
+
     def parse_sandbox_url(self):
         if self.sha256:
             return "https://wildfire.paloaltonetworks.com/wildfire/reportlist?search=" + self.sha256
@@ -57,6 +70,8 @@ class WildfireParser(BaseSandboxParser):
             return ""
 
     def parse_http_requests(self):
+        self.logger.debug("Parsing HTTP requests")
+
         # We use a set instead of a list since there are multiple Wildfire reports.
         # This prevents any duplicate requests being returned.
         http_requests = set()
@@ -93,6 +108,8 @@ class WildfireParser(BaseSandboxParser):
         return list(http_requests)
     
     def parse_dns_requests(self):
+        self.logger.debug("Parsing DNS requests")
+
         # We use a set instead of a list since there are multiple Wildfire reports.
         # This prevents any duplicate requests being returned.
         dns_requests = set()
@@ -129,6 +146,8 @@ class WildfireParser(BaseSandboxParser):
         return list(dns_requests)
 
     def parse_dropped_files(self):
+        self.logger.debug("Parsing dropped files")
+
         # We use a set instead of a list since there are multiple Wildfire reports.
         # This prevents any duplicate requests being returned.
         dropped_files = set()
@@ -185,6 +204,8 @@ class WildfireParser(BaseSandboxParser):
         return list(dropped_files)
     
     def parse_contacted_hosts(self):
+        self.logger.debug("Parsing contacted hosts")
+
         # We use a set instead of a list since there are multiple Wildfire reports.
         # This prevents any duplicate hosts being returned.
         contacted_hosts = set()
@@ -248,9 +269,12 @@ class WildfireParser(BaseSandboxParser):
         return list(contacted_hosts)
     
     def parse_process_tree_urls(self):
+        self.logger.debug("Looking for URLs in the process tree")
         return RegexHelpers.find_urls(str(self.parse_process_tree()))
     
     def parse_process_tree(self):
+        self.logger.debug("Parsing process tree")
+
         def walk_tree(process_json=None, process_list=None, previous_pid=0):
             if not process_list:
                 process_list = ProcessList()
@@ -291,6 +315,8 @@ class WildfireParser(BaseSandboxParser):
         return walk_tree(process_json=process_tree_to_use)
     
     def parse_mutexes(self):
+        self.logger.debug("Parsing mutexes")
+
         # We use a set instead of a list since there are multiple Wildfire reports.
         # This prevents any duplicate mutexes being returned.
         mutexes = set()

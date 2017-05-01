@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 from urllib.parse import urlsplit
 
 from integralutils.BaseLoader import *
@@ -8,6 +9,8 @@ class Whitelist(BaseLoader):
     def __init__(self, config_path=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path)
+
+        self.logger = logging.getLogger()
 
         # This will read your config file and create class variables
         # named <section>_<key>. For example, if your config file has
@@ -20,20 +23,32 @@ class Whitelist(BaseLoader):
             for key in self.config[section]:
                 section_key = section + "_" + key
                 if not hasattr(self, section_key):
-                    # I removed a try/except block around this since users will
-                    # probably want to see the FileNotFoundError if their whitelist
-                    # config points to a missing whitelist.
-                    with open(self.config[section][key]) as f:
-                        lines = f.read().splitlines()
-                        
-                        # Remove any lines that begin with #.
-                        lines = [line for line in lines if not line.startswith("#")]
-                        
-                        # Remove any blank lines.
-                        lines = [line for line in lines if line]
+                    self.logger.debug("Loading white/benign list " + self.config[section][key])
 
-                        # Store the lines list at self.<section>_<key>
-                        setattr(self, section_key, lines)
+                    try:
+                        with open(self.config[section][key]) as f:
+                            lines = f.read().splitlines()
+                            
+                            # Remove any lines that begin with #.
+                            lines = [line for line in lines if not line.startswith("#")]
+                            
+                            # Remove any blank lines.
+                            lines = [line for line in lines if line]
+    
+                            # Store the lines list at self.<section>_<key>
+                            setattr(self, section_key, lines)
+                    except Exception:
+                        self.logger.exception("Error loading white/benign list " + self.config[section][key])
+                        raise
+
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     def is_tor_node(self, ip):
         if hasattr(self, "Benignlists_tor_nodes"):

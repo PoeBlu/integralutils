@@ -1,6 +1,7 @@
 import os
 import tempfile
 import hashlib
+import logging
 
 from pymongo import MongoClient
 from pymongo.errors import *
@@ -19,6 +20,9 @@ class ConfluenceEventPage(BaseConfluencePage):
         # Run the super init to load the config and cache the page if it exists.
         super().__init__(page_title, parent_title=parent_title, config_path=config_path)
 
+        self.logger = logging.getLogger()
+        self.logger.debug("Doing work on Confluence page " + page_title)
+
         # First check if there is a custom template to use.
         if "template" in self.config["ConfluenceEventPage"]:
             template_path = self.config["ConfluenceEventPage"]["template"]
@@ -31,7 +35,17 @@ class ConfluenceEventPage(BaseConfluencePage):
         
         # If the page does not exist, spin up the template.
         if not self.page_exists():
+            self.logger.debug("Confluence page " + page_title + " does not exist. Using template: " + template_path)
             self.soup = self.soupify(open(template_path).read())
+
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     def listify_section_table(self, section_id, horizontal_header=True):
         section = self.get_section(section_id)
@@ -46,6 +60,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         return table_list
 
     def update_time_table(self, times_dict):
+        self.logger.debug("Updating Time Table section.")
+
         # Get the existing time table and its data.
         existing_time_table = self.get_section("time_table")
         rows = existing_time_table.find_all("tr")
@@ -94,6 +110,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         
     
     def update_artifacts(self, path, server=None):
+        self.logger.debug("Updating Artifacts section.")
+
         # Create the parent div tag.
         div = self.new_tag("div")
         
@@ -116,6 +134,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         
     
     def update_alerts(self, alert_list):
+        self.logger.debug("Updating Alerts section.")
+
         # Create the parent div tag.
         div = self.new_tag("div")
                 
@@ -161,6 +181,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         
     
     def update_crits_analysis(self, potential_indicators):
+        self.logger.debug("Updating CRITS Analysis section.")
+
         # Create the parent div tag.
         div = self.new_tag("div")
         
@@ -233,6 +255,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         
     
     def update_phish_info(self, email_list):
+        self.logger.debug("Updating Phish Information section.")
+
         # Create the parent div tag.
         div = self.new_tag("div")
         
@@ -300,6 +324,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         
     
     def update_phish_headers(self, email):
+        self.logger.debug("Updating Phish Headers section.")
+
         # Create the parent div tag.
         div = self.new_tag("div")
         
@@ -317,6 +343,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         
     
     def update_phish_body(self, email):
+        self.logger.debug("Updating Phish Body section.")
+
         # Create the parent div tag.
         div = self.new_tag("div")
         
@@ -337,6 +365,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         
     
     def update_user_analysis(self, alert_list):
+        self.logger.debug("Updating User Analysis section.")
+
         # Create the parent div tag.
         div = self.new_tag("div")
                 
@@ -397,6 +427,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         
     
     def update_url_analysis(self, url_list):
+        self.logger.debug("Updating URL Analysis section.")
+
         # Create the parent div tag.
         div = self.new_tag("div")
         
@@ -421,6 +453,8 @@ class ConfluenceEventPage(BaseConfluencePage):
             self.update_section(div, old_section_id="url_analysis")
     
     def update_sandbox_analysis(self, sandbox_dict):
+        self.logger.debug("Updating Sandbox Analysis section.")
+
         # Get a working copy of the sandbox analysis section.
         #sandbox_analysis = self.get_section("sandbox_analysis")
         
@@ -446,6 +480,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                 ##  SANDBOX URLS  ##
                 ##                ##
                 ####################
+                self.logger.debug("Updating sandbox URLs for " + hash)
+
                 # Make the new sub-section.
                 sandbox_urls_section_id = "sandbox_urls_" + hash
                 sandbox_urls_section = self.make_section(sandbox_urls_section_id, parent=div)
@@ -484,6 +520,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                 ###################
                 # Only continue if there are actually some screenshots.
                 if any(report.screenshot_path for report in sandbox_dict[hash]):
+                    self.logger.debug("Updating screenshots for " + hash)
+
                     # Make the new sub-section.
                     screenshot_section_id = "screenshot_" + hash
                     screenshot_section = self.make_section(screenshot_section_id, parent=div)
@@ -525,6 +563,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                 ###############
                 # Only continue if there are actually some mutexes.
                 if dedup_report.mutexes:
+                    self.logger.debug("Updating mutexes for " + hash)
+
                     # Make the new sub-section.
                     mutexes_section_id = "mutexes_" + hash
                     mutex_section = self.make_section(mutexes_section_id, parent=div)
@@ -554,6 +594,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                 #####################
                 # Only continue if there are actually any dropped files.
                 if dedup_report.dropped_files:
+                    self.logger.debug("Updating dropped files for " + hash)
+
                     # Make the new sub-section.
                     dropped_section_id = "dropped_" + hash
                     dropped_section = self.make_section(dropped_section_id, parent=div)
@@ -617,6 +659,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                 ####################
                 # Only continue if there are actually any dropped files.
                 if dedup_report.dns_requests:
+                    self.logger.debug("Updating DNS requests for " + hash)
+
                     # Make the new sub-section.
                     dns_section_id = "dns_" + hash
                     dns_section = self.make_section(dns_section_id, parent=div)
@@ -683,6 +727,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                 #####################
                 # Only continue if there are actually any dropped files.
                 if dedup_report.http_requests:
+                    self.logger.debug("Updating HTTP requests for " + hash)
+
                     # Make the new sub-section.
                     http_section_id = "http_" + hash
                     http_section = self.make_section(http_section_id, parent=div)
@@ -744,6 +790,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                 #######################
                 # Only continue if there are actually any dropped files.
                 if dedup_report.contacted_hosts:
+                    self.logger.debug("Updating contacted hosts for " + hash)
+
                     # Make the new sub-section.
                     hosts_section_id = "hosts_" + hash
                     hosts_section = self.make_section(hosts_section_id, parent=div)
@@ -808,6 +856,8 @@ class ConfluenceEventPage(BaseConfluencePage):
                 #####################
                 # Only continue if there are actually some process trees.
                 if dedup_report.process_tree_list:
+                    self.logger.debug("Updating process tree for " + hash)
+
                     # Make the new sub-section.
                     process_section_id = "process_" + hash
                     process_section = self.make_section(process_section_id, parent=div)

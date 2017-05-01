@@ -1,4 +1,5 @@
 import csv
+import logging
 import os
 import re
 import configparser
@@ -15,6 +16,8 @@ class Indicator:
     indicator_csv_header = ["Indicator", "Type", "Threat Type", "Attack Type", "Description", "Campaign", "Campaign Confidence", "Confidence", "Impact", "Bucket List", "Ticket", "Action"]
 
     def __init__(self, indicator, type, check_whitelist=True):
+        self.logger = logging.getLogger()
+
         if not isinstance(indicator, str):
             raise ValueError("indicator must be a string")
         if not indicator:
@@ -33,6 +36,15 @@ class Indicator:
         self.ticket = ""
         self.action = ""
         self._relationships = set()
+
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     def __eq__(self, other):
         if isinstance(other, Indicator):
@@ -104,6 +116,9 @@ class Indicator:
         return [self.indicator, self.type, self.threat_type, self.attack_type, self.description, self.campaign, self.campaign_conf, self.conf, self.impact, tag_string, self.ticket, self.action]
     
 def run_whitelist(indicator_list, config_path=None, extend_whitelist=True, merge=True):
+    logger = logging.getLogger()
+    logger.debug("Running whitelists against list of indicators.")
+
     # In case we were given just a single Indicator, add it to a list.
     if isinstance(indicator_list, Indicator):
         indicator_list = [indicator_list]
@@ -230,6 +245,9 @@ def run_whitelist(indicator_list, config_path=None, extend_whitelist=True, merge
         return good_indicators
 
 def read_relationships_csv(csv_path):
+    logger = logging.getLogger()
+    logger.debug("Reading relationships " + csv_path)
+
     # Use a set instead of a list so we weed out any duplicates.
     relationships = set()
 
@@ -248,6 +266,9 @@ def read_relationships_csv(csv_path):
     return sorted(list(relationships))
 
 def write_relationships_csv(indicator_list, csv_path, config_path=None, append=True, whitelist=True, merge=True):
+    logger = logging.getLogger()
+    logger.debug("Writing relationships " + csv_path)
+
     # Make sure we are dealing with a list of Indicator objects.
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):
         if whitelist:
@@ -273,6 +294,9 @@ def write_relationships_csv(indicator_list, csv_path, config_path=None, append=T
                 csv_writer.writerow(relationship)
 
 def read_indicators_csv(csv_path, merge=True):
+    logger = logging.getLogger()
+    logger.debug("Reading indicators " + csv_path)
+
     indicators = []
 
     with open(csv_path) as c:
@@ -317,6 +341,9 @@ def read_indicators_csv(csv_path, merge=True):
         return indicators
 
 def write_indicators_csv(indicator_list, csv_path, append=True, config_path=None, whitelist=True, merge=True):
+    logger = logging.getLogger()
+    logger.debug("Writing indicators " + csv_path)
+
     # Make sure we are dealing with a list of Indicator objects.
     if all(isinstance(indicator, Indicator) for indicator in indicator_list):            
         if os.path.exists(csv_path):
