@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import requests
 import logging
@@ -191,6 +192,10 @@ class BaseConfluencePage(ConfluenceConnector):
     ##                      ##
     ##########################
     def create_page(self, page_text):
+        # Strip out any bad XML characters.
+        illegal_xml_re = re.compile(u'[\x00-\x08\x0b-\x1f\x7f-\x84\x86-\x9f\ud800-\udfff\ufdd0-\ufddf\ufffe-\uffff]')
+        page_text = illegal_xml_re.sub("", page_text)
+
         # Only create the page if it does not exist.
         if not self.page_exists():
             if self.parent_title:
@@ -207,9 +212,13 @@ class BaseConfluencePage(ConfluenceConnector):
             r = requests.post(self.api_url, auth=(self.username, self.password), data=json.dumps(data), headers=({'Content-Type':'application/json'}), verify=self.requests_verify)
             
             # If the call was successful, cache the page.
-            if self._validate_request(r, error_msg="Unable to create page '" + self.page_title + "'."):
-                self.logger.debug("Created Confluence page: " + self.page_title)
-                self.cache_page()
+            try:
+                if self._validate_request(r, error_msg="Unable to create page '" + self.page_title + "'."):
+                    self.logger.debug("Created Confluence page: " + self.page_title)
+                    self.cache_page()
+            except ValueError:
+                self.logger.exception(repr(page_text))
+                raise
 
     def commit_page(self):
         if not self.page_exists() and self.soup:
@@ -219,6 +228,10 @@ class BaseConfluencePage(ConfluenceConnector):
         page_id = self.get_page_id()
         page_current_version = self.get_page_version()
         cached_page_text = str(self.soup)
+
+        # Strip out any bad XML characters.
+        illegal_xml_re = re.compile(u'[\x00-\x08\x0b-\x1f\x7f-\x84\x86-\x9f\ud800-\udfff\ufdd0-\ufddf\ufffe-\uffff]')
+        cached_page_text = illegal_xml_re.sub("", cached_page_text)
 
         # Perform the API call to update the page.
         data = {'type': 'page', 'id': page_id, 'title': self.page_title, 'space': {'key': self.space_key}, 'body': {'storage': {'value': cached_page_text, 'representation': 'storage'}}, 'version': {'number': page_current_version+1}}

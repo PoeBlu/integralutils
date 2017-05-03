@@ -1,14 +1,30 @@
 import json
 import logging
+import sys
 
 from integralutils.BaseAlert import *
+#from integralutils import Whitelist
 
 class ACEAlert(BaseAlert):
-    def __init__(self, alert_path, config_path=None):
+    def __init__(self, alert_path, config_path=None, whitelister=None): 
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path)
         
+        # Initiate logging.
         self.logger = logging.getLogger()
+
+        # Make sure we were given a valid config.
+        #if isinstance(config, configparser.ConfigParser):
+        #    self.config = config
+        #else:
+        #    self.logger.critical("You must pass in a valid ConfigParser config.")
+        #    sys.exit(2)
+
+        # Check if we got a Whitelist object.
+        if isinstance(whitelister, Whitelist.Whitelist):
+            self.whitelister = whitelister
+        else:
+            self.whitelister = None
 
         alert_json_path = os.path.join(alert_path, "data.json")
         alert_json_path = os.path.normpath(alert_json_path)
@@ -48,7 +64,7 @@ class ACEAlert(BaseAlert):
                 if "rfc822" in mime:
                     try:
                         self.logger.debug("Parsing e-mail: " + file_path)
-                        email = EmailParser.EmailParser(smtp_path=file_path)
+                        email = EmailParser.EmailParser(smtp_path=file_path, whitelister=self.whitelister)
                         email.reference = self.alert_url
                         potential_emails.append(email)
                     except Exception:
@@ -114,7 +130,7 @@ class ACEAlert(BaseAlert):
         self.urls = sorted(list(unique_urls))
                     
         # Make Indicators for any URLs that ACE extracted.
-        indicator_list = Indicator.generate_url_indicators(self.urls)
+        indicator_list = Indicator.generate_url_indicators(self.urls, whitelister=self.whitelister)
         
         # Add some additional tags and add them to our main IOC list.
         for ind in indicator_list:
@@ -141,6 +157,7 @@ class ACEAlert(BaseAlert):
                             sandbox_json_path = os.path.join(root, file)
                             self.add_sandbox(sandbox_json_path)
 
+    # Remove the logger object in case someone pickles this class.
     def __getstate__(self):
         d = dict(self.__dict__)
         if "logger" in d:

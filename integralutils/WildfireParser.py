@@ -7,7 +7,7 @@ import configparser
 from integralutils.BaseSandboxParser import *
 
 class WildfireParser(BaseSandboxParser):          
-    def __init__(self, json_report_path, config_path=None):
+    def __init__(self, json_report_path, config_path=None, whitelister=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(json_report_path, config_path=config_path)
 

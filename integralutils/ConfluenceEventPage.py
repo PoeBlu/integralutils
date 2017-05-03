@@ -70,7 +70,7 @@ class ConfluenceEventPage(BaseConfluencePage):
         # Create the parent div tag.
         div = self.new_tag("div")
         
-        # Add the headself.whitelister = Whitelist.Whitelist(config_path=config_path)self.whitelister = Whitelist.Whitelist(config_path=config_path)er tag.
+        # Add the header tag.
         header = self.new_tag("h1", parent=div)
         header.string = "Time Table"
         

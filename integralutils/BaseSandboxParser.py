@@ -56,11 +56,16 @@ def detect_sandbox(json_path):
     return ""
 
 class BaseSandboxParser(BaseLoader):
-    def __init__(self, json_path=None, config_path=None):
+    def __init__(self, json_path=None, config_path=None, whitelister=None):
         # Run the super init to inherit attributes and load the config.
         super().__init__(config_path=config_path)
 
         self.logger = logging.getLogger()
+
+        if whitelister:
+            self.whitelister = whitelister
+        else:
+            self.whitelister = Whitelist.Whitelist(config_path=config_path)
         
         self.iocs                 = []
         self.sandbox_name         = ""
@@ -88,9 +93,6 @@ class BaseSandboxParser(BaseLoader):
         self.resolved_apis        = []
         self.created_services     = []
         self.started_services     = []
-        
-        # Load a whitelister object.
-        self.whitelister = Whitelist.Whitelist(config_path=config_path)
         
         # Figure out where we want to save the screenshots.
         if "screenshot_repository" in self.config["BaseSandboxParser"]:
@@ -338,7 +340,7 @@ class BaseSandboxParser(BaseLoader):
                 
         # Make Indicators for any memory URLs. Currently, only VxStream
         # has this memory URL feature.
-        indicator_list = Indicator.generate_url_indicators(self.memory_urls)
+        indicator_list = Indicator.generate_url_indicators(self.memory_urls, whitelister=self.whitelister)
 
         # Add some extra tags to the generated indicators and
         # then add them to our main IOC list.
@@ -347,7 +349,7 @@ class BaseSandboxParser(BaseLoader):
             self.iocs.append(ind)
                 
         # Make Indicators for any URLs found in the sample's strings.
-        indicator_list = Indicator.generate_url_indicators(self.strings_urls)
+        indicator_list = Indicator.generate_url_indicators(self.strings_urls, whitelister=self.whitelister)
 
         # Add some extra tags to the generated indicators and
         # then add them to our main IOC list.
@@ -356,7 +358,7 @@ class BaseSandboxParser(BaseLoader):
             self.iocs.append(ind)
 
         # Make Indicators for any URLs found in the sample's process tree.
-        indicator_list = Indicator.generate_url_indicators(self.process_tree_urls)
+        indicator_list = Indicator.generate_url_indicators(self.process_tree_urls, whitelister=self.whitelister)
 
         # Add some extra tags to the generated indicators and
         # then add them to our main IOC list.
@@ -375,7 +377,7 @@ class BaseSandboxParser(BaseLoader):
                 
         # Run the IOCs through the whitelists if requested.
         if check_whitelist:
-            self.iocs = Indicator.run_whitelist(self.iocs)
+            self.iocs = Indicator.run_whitelist(self.iocs, whitelister=self.whitelister)
             
         # Finally merge the IOCs so we don't have any duplicates.
         self.iocs = Indicator.merge_duplicate_indicators(self.iocs)

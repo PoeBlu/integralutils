@@ -115,7 +115,7 @@ class Indicator:
             
         return [self.indicator, self.type, self.threat_type, self.attack_type, self.description, self.campaign, self.campaign_conf, self.conf, self.impact, tag_string, self.ticket, self.action]
     
-def run_whitelist(indicator_list, config_path=None, extend_whitelist=True, merge=True):
+def run_whitelist(indicator_list, config_path=None, whitelister=None, extend_whitelist=True, merge=True):
     logger = logging.getLogger()
     logger.debug("Running whitelists against list of indicators.")
 
@@ -427,7 +427,7 @@ def merge_duplicate_indicators(indicator_list):
     else:
         raise ValueError("merge_duplicate_indicators requires a list of Indicator objects")
         
-def generate_url_indicators(url_list):
+def generate_url_indicators(url_list, whitelister=None):
     indicators = []
     
     # In case we were given a string (a single URL), add it

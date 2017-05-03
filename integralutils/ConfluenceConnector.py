@@ -66,7 +66,8 @@ class ConfluenceConnector(BaseLoader):
         if request.status_code == 200:
             return True
         else:
-            if self.debug:
-                self.logger.error(request.text)
+            #if self.debug:
+            #    self.logger.error(request.text)
+            print(request.text)
             raise ValueError(error_msg)
 

@@ -16,7 +16,7 @@ from integralutils import Indicator
 from integralutils import Whitelist
 
 class EmailParser():
-    def __init__(self, smtp_path=None, smtp_text=None, attached_email=True, check_whitelist=True):
+    def __init__(self, smtp_path=None, smtp_text=None, attached_email=True, whitelister=None, check_whitelist=True):
         self.logger = logging.getLogger()
 
         # Check that we got at least an SMTP path or text:
