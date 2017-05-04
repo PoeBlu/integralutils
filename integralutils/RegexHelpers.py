@@ -63,6 +63,12 @@ def find_urls(value):
     urls = _url.findall(value)
     unescaped_urls = [html.unescape(url[0]) for url in urls]
 
+    # Try and remove any URLs that look like partial versions of other URLs.
+    unique_urls = unescaped_urls[:]
+    for url in unescaped_urls:
+        if not any(other_url.startswith(url) and other_url != url for other_url in unescaped_urls):
+            unique_urls.append(url)
+
     # Try to convert what we were given to soup and search for URLs.
     try:
         # Try to de-quoted-printable the text.
@@ -75,7 +81,7 @@ def find_urls(value):
             url = tag["href"]
             url = re.sub("\s+", "", url)
             if is_url(url):
-                unescaped_urls.append(url)
+                unique_urls.append(url)
 
         # Find any src urls.
         tags = soup.find_all(src=True)
@@ -83,48 +89,39 @@ def find_urls(value):
             url = tag["src"]
             url = re.sub("\s+", "", url)
             if is_url(url):
-                unescaped_urls.append(url)
+                unique_urls.append(url)
     except:
         pass
 
     # Check for embedded URLs inside other URLs.
-    all_urls = set()
     for url in unescaped_urls:
-        all_urls.add(url)
-
         for chunk in url.split("http://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
                     if is_url("http://" + chunk):
-                        all_urls.add("http://" + chunk)
+                        unique_urls.append("http://" + chunk)
 
         for chunk in url.split("https://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
                     if is_url("https://" + chunk):
-                        all_urls.add("https://" + chunk)
+                        unique_urls.append("https://" + chunk)
 
         for chunk in url.split("ftp://"):
             if chunk:
                 if not chunk.startswith("http://") and not chunk.startswith("https://") and not chunk.startswith("ftp://"):
                     if is_url("ftp://" + chunk):
-                        all_urls.add("ftp://" + chunk)
+                        unique_urls.append("ftp://" + chunk)
 
-    # Try and remove any URLs that look like partial versions of other URLs.
-    unique_urls = set()
-    for url in all_urls:
-        if not any(other_url.startswith(url) and other_url != url for other_url in all_urls):
-            unique_urls.add(url)
-        
     # Remove any URLs that do not appear to be valid.
-    unique_urls = list(unique_urls)
     for url in unique_urls[:]:
         parsed_url = urlparse(url)
         if not is_domain(parsed_url.netloc) and not is_ip(parsed_url.netloc):
             unique_urls.remove(url)
 
     # Try and specifically find any bit.ly URLs since these seem to be
-    # the URL of choice when embedded inside Google URLs.
+    # the URL of choice when embedded inside Google URLs. I might add other
+    # specific URL shorteners later.
     for url in unique_urls[:]:
         bitly_urls = _bitly_url.findall(url)
         for bitly_url in bitly_urls:
@@ -133,7 +130,7 @@ def find_urls(value):
     # Remove any trailing "."'s from the URLs.
     unique_urls = [url[:-1] if url.endswith(".") else url for url in unique_urls]
     
-    return sorted(unique_urls)
+    return sorted(list(set(unique_urls)))
     
 def find_strings(value):
     strings_matches = _strings.findall(value)
