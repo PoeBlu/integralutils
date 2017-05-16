@@ -1,27 +1,30 @@
-import os
 import logging
+import magic
+import os
+import sys
 
-from integralutils.BaseLoader import *
-from integralutils import Whitelist
-from integralutils import BaseSandboxParser
-from integralutils import SpenderCuckooParser
-from integralutils import CuckooParser
-from integralutils import VxstreamParser
-from integralutils import WildfireParser
-from integralutils import EmailParser
-from integralutils import Indicator
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
 
-class BaseAlert(BaseLoader):
-    def __init__(self, config_path=None, whitelister=None):
-        # Run the super init to inherit attributes and load the config.
-        super().__init__(config_path=config_path)
+import BaseSandboxParser
+import SpenderCuckooParser
+import CuckooParser
+import VxstreamParser
+import WildfireParser
 
+class BaseAlert():
+    def __init__(self, config, whitelister=None):
+        # Initiate logging.
         self.logger = logging.getLogger()
 
-        if whitelister:
-            self.whitelister = whitelister
-        else:
-            self.whitelister = Whitelist.Whitelist(config_path=config_path)
+        # Save the config. This should be a ConfigParser object.
+        self.config = config
+
+        # Save the whitelister. This should be a Whitelist object.
+        self.whitelister = whitelister
 
         # A list of Indicator objects for the alert.
         self.iocs = []
@@ -57,6 +60,8 @@ class BaseAlert(BaseLoader):
         for sample in self.sandbox:
             self.sandbox[sample].sort(key=lambda x: x.sandbox_url)
 
+    # Override __get/setstate__ in case someone
+    # wants to pickle an object of this class.
     def __getstate__(self):
         d = dict(self.__dict__)
         if "logger" in d:
@@ -65,6 +70,12 @@ class BaseAlert(BaseLoader):
 
     def __setstate__(self, d):
         self.__dict__.update(d)
+
+    def get_file_mimetype(self, file_path):
+        if os.path.exists(file_path):
+            return magic.from_file(file_path, mime=True)
+        else:
+            return ""
                 
     def add_sandbox(self, json_path):
         if isinstance(json_path, str):
@@ -72,41 +83,37 @@ class BaseAlert(BaseLoader):
                 try:
                     sandbox_name = BaseSandboxParser.detect_sandbox(json_path)
                 except Exception:
+                    # Log and skip this sandbox report if it couldn't be detected.
                     self.logger.exception("Error detecting sandbox: " + json_path)
-                    raise
 
                 sandbox_report = None
                 if sandbox_name == "spendercuckoo":
                     try:
-                        sandbox_report = SpenderCuckooParser.SpenderCuckooParser(json_path, config_path=self.config_path, whitelister=self.whitelister)
-                        self.logger.debug("Parsed Spender Cuckoo report: " + json_path)
+                        sandbox_report = SpenderCuckooParser.SpenderCuckooParser(self.config, json_path, whitelister=self.whitelister)
                     except Exception:
+                        # Log and skip this sandbox report if it couldn't be parsed.
                         self.logger.exception("Error parsing Spender Cuckoo report: " + json_path)
-                        raise
 
                 elif sandbox_name == "cuckoo":
                     try:
-                        sandbox_report = CuckooParser.CuckooParser(json_path, config_path=self.config_path, whitelister=self.whitelister)
-                        self.logger.debug("Parsed Cuckoo report: " + json_path)
+                        sandbox_report = CuckooParser.CuckooParser(self.config, json_path, whitelister=self.whitelister)
                     except Exception:
+                        # Log and skip this sandbox report if it couldn't be parsed.
                         self.logger.exception("Error parsing Cuckoo report: " + json_path)
-                        raise
 
                 elif sandbox_name == "vxstream":
                     try:
-                        sandbox_report = VxstreamParser.VxstreamParser(json_path, config_path=self.config_path, whitelister=self.whitelister)
-                        self.logger.debug("Parsed VxStream report: " + json_path)
+                        sandbox_report = VxstreamParser.VxstreamParser(self.config, json_path, whitelister=self.whitelister)
                     except Exception:
+                        # Log and skip this sandbox report if it couldn't be parsed.
                         self.logger.exception("Error parsing VxStream report: " + json_path)
-                        raise
 
                 elif sandbox_name == "wildfire":
                     try:
-                        sandbox_report = WildfireParser.WildfireParser(json_path, config_path=self.config_path, whitelister=self.whitelister)
-                        self.logger.debug("Parsed Wildfire report: " + json_path)
+                        sandbox_report = WildfireParser.WildfireParser(self.config, json_path, whitelister=self.whitelister)
                     except Exception:
+                        # Log and skip this sandbox report if it couldn't be parsed.
                         self.logger.exception("Error parsing Wildfire report: " + json_path)
-                        raise
                 
                 # Continue if we successfully parsed a sandbox report.
                 if sandbox_report:

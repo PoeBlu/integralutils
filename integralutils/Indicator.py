@@ -2,10 +2,16 @@ import csv
 import logging
 import os
 import re
-import configparser
 from urllib.parse import urlsplit
+import sys
 
-from integralutils import RegexHelpers
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
+
+import RegexHelpers
 
 class Indicator:
     # This class is modeled after a CRITS indicator and the .csv file you could create to upload new indicators into CRITS.
@@ -15,7 +21,7 @@ class Indicator:
     # 18d4695d8ebd3d7d6df1c7a8fdcbd64d,Hash - MD5,,,,,,low,low,"dropped_file,somefile.exe,ransomware",,
     indicator_csv_header = ["Indicator", "Type", "Threat Type", "Attack Type", "Description", "Campaign", "Campaign Confidence", "Confidence", "Impact", "Bucket List", "Ticket", "Action"]
 
-    def __init__(self, indicator, type, check_whitelist=True):
+    def __init__(self, indicator, type):
         self.logger = logging.getLogger()
 
         if not isinstance(indicator, str):
@@ -37,6 +43,8 @@ class Indicator:
         self.action = ""
         self._relationships = set()
 
+    # Override __get/setstate__ in case someone
+    # wants to pickle an object of this class.
     def __getstate__(self):
         d = dict(self.__dict__)
         if "logger" in d:
@@ -103,8 +111,53 @@ class Indicator:
         self.conf = "benign"
         self.impact = "benign"
         
-    def is_benign(self):
-        return self.conf == "benign" and self.impact == "benign"
+    def is_benign(self, benignlists):
+        regex_chars = ["^", "$", "{", "}", "*", "\\"]
+
+        # Check if we loaded a benignlist for this indicator type.
+        if self.type in benignlists:
+    
+            # Now check if the indicator is actually benign.
+            # Start by performing an "in" match against the lists.
+            if self.indicator in benignlists[self.type]:
+                self.make_benign()
+                return True
+            # If that failed, treat the lists as regex statements
+            # and try each one. This is slow.
+            else:
+                for regex in benignlists[self.type]:
+                    # Only continue if it actually looks like a regex.
+                    if any(char in regex for char in regex_chars):
+                        pattern = re.compile(regex)
+                        if pattern.search(self.indicator):
+                            self.make_benign()
+                            return True
+
+        return False
+
+    def is_whitelisted(self, whitelists):
+        regex_chars = ["^", "$", "{", "}", "*", "\\"]
+
+        # Check if we loaded a whitelist for this indicator type.
+        if self.type in whitelists:
+
+            # Now check if the indicator is actually whitelisted.
+            # Start by performing an "in" match against the lists.
+            if self.indicator in whitelists[self.type]:
+                return True
+            # If that failed, treat the lists as regex statements
+            # and try each one. This is slow.
+            else:
+                for regex in whitelists[self.type]:
+                    # Only continue if it actually looks like a regex.
+                    if any(char in regex for char in regex_chars):
+                        pattern = re.compile(regex)
+                        # If the regex matched, add the indicator to the
+                        # bad list, and remove it from the good list.
+                        if pattern.search(self.indicator):
+                            return True
+
+        return False
 
     def csv_line(self):
         # Convert the set of tags to a string.
@@ -115,134 +168,216 @@ class Indicator:
             
         return [self.indicator, self.type, self.threat_type, self.attack_type, self.description, self.campaign, self.campaign_conf, self.conf, self.impact, tag_string, self.ticket, self.action]
     
-def run_whitelist(indicator_list, config_path=None, whitelister=None, extend_whitelist=True, merge=True):
+def read_whitelists(config):
+    # Initiate logging.
+    logger = logging.getLogger()
+    logger.debug("Reading whitelists")
+
+    # Get the Indicator whitelist directory.
+    indicator_whitelists_dir = config["Indicator"]["whitelists_dir"]
+
+    # List the whitelist directory to see which whitelists we have.                                  
+    indicator_type_whitelists_dirs = os.listdir(indicator_whitelists_dir)
+                                                                                                     
+    # Keep a dictionary of all of the available whitelists.                                          
+    available_whitelists = {}                                                                        
+    for indicator_type in indicator_type_whitelists_dirs:                                            
+        indicator_type_path = os.path.join(indicator_whitelists_dir, indicator_type)                 
+        if os.path.isdir(indicator_type_path):                                                       
+            available_whitelists[indicator_type] = []                                                
+            for whitelist in os.listdir(indicator_type_path):                                        
+                whitelist_path = os.path.join(indicator_type_path, whitelist)
+                logger.debug("Loading whitelist for \"" + indicator_type + "\": " + whitelist_path)
+                                                                                                     
+                with open(whitelist_path) as w:                                                      
+                    lines = w.read().splitlines()                                                    
+                                                                                                     
+                    # Remove any lines that begin with #.                                            
+                    lines = [line for line in lines if not line.startswith("#")]                     
+                                                                                                     
+                    # Remove any blank lines.
+                    lines = [line for line in lines if line]
+    
+                    # Store the regex lines in the dictionary.
+                    available_whitelists[indicator_type] += lines 
+
+    return available_whitelists
+
+def read_benignlists(config):
+    # Initiate logging.
+    logger = logging.getLogger()
+    logger.debug("Reading benignlists")
+
+    # Get the Indicator benignlist directory.
+    indicator_benignlists_dir = config["Indicator"]["benignlist_dir"]
+
+    # List the benignlist directory to see which benignlists we have.
+    indicator_type_benignlists_dirs = os.listdir(indicator_benignlists_dir)
+
+    # Keep a dictionary of all of the available benignlists.
+    available_benignlists = {}
+    for indicator_type in indicator_type_benignlists_dirs:
+        indicator_type_path = os.path.join(indicator_benignlists_dir, indicator_type)
+        if os.path.isdir(indicator_type_path):
+            available_benignlists[indicator_type] = []
+            for benignlist in os.listdir(indicator_type_path):
+                benignlist_path = os.path.join(indicator_type_path, benignlist)
+                logger.debug("Loading benignlist for \"" + indicator_type + "\": " + benignlist_path)
+    
+                with open(benignlist_path) as b:
+                    lines = b.read().splitlines()
+    
+                    # Remove any lines that begin with #.
+                    lines = [line for line in lines if not line.startswith("#")]
+    
+                    # Remove any blank lines.
+                    lines = [line for line in lines if line]
+    
+                    # Store the regex lines in the dictionary.
+                    available_benignlists[indicator_type] += lines
+
+    return available_benignlists
+
+def run_whitelist(config, indicator_list, extend_whitelist=True, merge=True):
+    # Initiate logging.
     logger = logging.getLogger()
     logger.debug("Running whitelists against list of indicators.")
-
+    
     # In case we were given just a single Indicator, add it to a list.
-    if isinstance(indicator_list, Indicator):
+    if not isinstance(indicator_list, list):
         indicator_list = [indicator_list]
         
-    # Make sure we are dealing with a list of Indicator objects.
-    if all(isinstance(indicator, Indicator) for indicator in indicator_list):
-        # If we weren't given a config_path, assume we're loading
-        # the one shipped with integralutils.
-        if not config_path:
-            config_path = os.path.join(os.path.dirname(__file__), "etc", "config.ini")
+    # Lists to hold the good (non-whitelisted or benign) indicators
+    # as well as bad (whitelisted) indicators. The bad indicator list is
+    # used at the end to cross-check any relationships in the good indicator
+    # list so we can remove them as well.
+    good_indicators = []
+    bad_indicators = []
+    
+    # Get the Indicator whitelist/benignlist directory.
+    indicator_whitelists_dir = config["Indicator"]["whitelists_dir"]
+    indicator_benignlists_dir = config["Indicator"]["benignlist_dir"]
+    
+    # List the whitelist directory to see which whitelists we have.
+    indicator_type_whitelists_dirs = os.listdir(indicator_whitelists_dir)
+    
+    # Keep a dictionary of all of the available whitelists.
+    available_whitelists = {}
+    for indicator_type in indicator_type_whitelists_dirs:
+        indicator_type_path = os.path.join(indicator_whitelists_dir, indicator_type)
+    if os.path.isdir(indicator_type_path):
+        available_whitelists[indicator_type] = []
+    for whitelist in os.listdir(indicator_type_path):
+        whitelist_path = os.path.join(indicator_type_path, whitelist)
+    
+        with open(whitelist_path) as w:
+            lines = w.read().splitlines()
             
-        # Lists to hold the good (non-whitelisted or benign) indicators
-        # as well as bad (whitelisted) indicators. The bad indicator list is
-        # used at the end to cross-check any relationships in the good indicator
-        # list so we can remove them as well.
-        good_indicators = []
-        bad_indicators = []
+            # Remove any lines that begin with #.
+            lines = [line for line in lines if not line.startswith("#")]
+    
+            # Remove any blank lines.
+            lines = [line for line in lines if line]
         
-        # Read the config file and get the Indicator whitelist/benignlist directory.
-        config = configparser.ConfigParser()
-        config.read(config_path)
-        indicator_whitelists_dir = config["Indicator"]["whitelists_dir"]
-        indicator_benignlists_dir = config["Indicator"]["benignlist_dir"]
+            # Store the regex lines in the dictionary.
+            available_whitelists[indicator_type] += lines
+    
+    # List the benignlist directory to see which benignlists we have.
+    indicator_type_benignlists_dirs = os.listdir(indicator_benignlists_dir)
+          
+    # Keep a dictionary of all of the available benignlists.
+    available_benignlists = {}
+    for indicator_type in indicator_type_benignlists_dirs:
+        indicator_type_path = os.path.join(indicator_benignlists_dir, indicator_type)
+    if os.path.isdir(indicator_type_path):
+        available_benignlists[indicator_type] = []
+    for benignlist in os.listdir(indicator_type_path):
+        benignlist_path = os.path.join(indicator_type_path, benignlist)
+    
+        with open(benignlist_path) as b:
+            lines = b.read().splitlines()
+            
+            # Remove any lines that begin with #.
+            lines = [line for line in lines if not line.startswith("#")]
+    
+            # Remove any blank lines.
+            lines = [line for line in lines if line]
         
-        # List the whitelist directory to see which whitelists we have.
-        indicator_type_whitelists_dirs = os.listdir(indicator_whitelists_dir)
-
-        # Keep a dictionary of all of the available whitelists.
-        available_whitelists = {}
-        for indicator_type in indicator_type_whitelists_dirs:
-            indicator_type_path = os.path.join(indicator_whitelists_dir, indicator_type)
-            if os.path.isdir(indicator_type_path):
-                available_whitelists[indicator_type] = []
-                for whitelist in os.listdir(indicator_type_path):
-                    whitelist_path = os.path.join(indicator_type_path, whitelist)
-
-                    with open(whitelist_path) as w:
-                        lines = w.read().splitlines()
-                                
-                        # Remove any lines that begin with #.
-                        lines = [line for line in lines if not line.startswith("#")]
-
-                        # Remove any blank lines.
-                        lines = [line for line in lines if line]
-                        
-                        # Store the regex lines in the dictionary.
-                        available_whitelists[indicator_type] += lines
-
-        # List the benignlist directory to see which benignlists we have.
-        indicator_type_benignlists_dirs = os.listdir(indicator_benignlists_dir)
-                      
-        # Keep a dictionary of all of the available benignlists.
-        available_benignlists = {}
-        for indicator_type in indicator_type_benignlists_dirs:
-            indicator_type_path = os.path.join(indicator_benignlists_dir, indicator_type)
-            if os.path.isdir(indicator_type_path):
-                available_benignlists[indicator_type] = []
-                for benignlist in os.listdir(indicator_type_path):
-                    benignlist_path = os.path.join(indicator_type_path, benignlist)
-
-                    with open(benignlist_path) as b:
-                        lines = b.read().splitlines()
-                                
-                        # Remove any lines that begin with #.
-                        lines = [line for line in lines if not line.startswith("#")]
-
-                        # Remove any blank lines.
-                        lines = [line for line in lines if line]
-                        
-                        # Store the regex lines in the dictionary.
-                        available_benignlists[indicator_type] += lines
+            # Store the regex lines in the dictionary.
+            available_benignlists[indicator_type] += lines
+    
+    # Loop over each indicator in the list and see if we have a
+    # whitelist or benignlist to run against it.
+    regex_chars = ["^", "$", "{", "}"]
+    for ind in indicator_list:
+        # Check if we loaded a benignlist for this indicator type.
+        if ind.type in available_benignlists:
         
-        # Loop over each indicator in the list and see if we have a
-        # whitelist or benignlist to run against it.
-        for ind in indicator_list:
-            # Check if we loaded a benignlist for this indicator type.
-            if ind.type in available_benignlists:
-                # Now check if the indicator is actually benign.
-                for regex in available_benignlists[ind.type]:
-                    pattern = re.compile(regex)
-                    if pattern.search(ind.indicator):
-                        ind.make_benign()
-
-            # Check if we loaded a whitelist for this indicator type.
-            if ind.type in available_whitelists:
-                # Assume the indicator is not whitelisted to start.
-                good_indicators.append(ind)
-                
-                # Now check if the indicator is actually whitelisted.
-                for regex in available_whitelists[ind.type]:
-                    pattern = re.compile(regex)
-                    # If the regex matched, add the indicator to the
-                    # bad list, and remove it from the good list.
-                    if pattern.search(ind.indicator):
-                        bad_indicators.append(ind)
-                        try:
-                            good_indicators.remove(ind)
-                        except ValueError:
-                            pass
-
-            # There isn't a whitelist for this indicator type. Just assume it's good.
+            # Now check if the indicator is actually benign.
+            # Start by performing an "in" match against the lists.
+            if ind.indicator in available_benignlists[ind.type]:
+                ind.make_benign()
+            # If that failed, treat the lists as regex statements
+            # and try each one. This is slow.
             else:
-                good_indicators.append(ind)
-
-        if extend_whitelist:
-            # Now loop through the bad indicator list to see if any of
-            # these indicators have relationships with any indicators that we
-            # determined were good. If so, we should treat those indicators as
-            # also being bad. For example, if we have a URL indicator (and thus
-            # also a domain name and URI path indicator), but the domain is
-            # whitelisted, we assume we don't want to bother adding the URI
-            # path or the URL as an indicator.
-            for bad_indicator in bad_indicators:
-                # Iterate over a copy of the good_indicators list so that
-                # we can remove elements from the actual list at the same time.
-                for good_indicator in good_indicators[:]:
-                    if bad_indicator.indicator in good_indicator.relationships:
-                        good_indicators.remove(good_indicator)
-
-        if merge:
-            # Merge the indicators if necessary.
-            good_indicators = merge_duplicate_indicators(good_indicators)
+                for regex in available_benignlists[ind.type]:
+                    # Only continue if it actually looks like a regex.
+                    if any(char in regex for char in regex_chars):
+                        pattern = re.compile(regex)
+                        if pattern.search(ind.indicator):
+                            ind.make_benign()
+    
+        # Check if we loaded a whitelist for this indicator type.
+        if ind.type in available_whitelists:
+        
+            # Assume the indicator is not whitelisted to start.
+            good_indicators.append(ind)
             
-        return good_indicators
+            # Now check if the indicator is actually whitelisted.
+            # Start by performing an "in" match against the lists.
+            if ind.indicator in available_whitelists[ind.type]:
+                good_indicators.remove(ind)
+            # If that failed, treat the lists as regex statements
+            # and try each one. This is slow.
+            else:
+                for regex in available_whitelists[ind.type]:
+                    # Only continue if it actually looks like a regex.
+                    if any(char in regex for char in regex_chars):
+                        pattern = re.compile(regex)
+                        # If the regex matched, add the indicator to the
+                        # bad list, and remove it from the good list.
+                        if pattern.search(ind.indicator):
+                            bad_indicators.append(ind)
+                            try:
+                                good_indicators.remove(ind)
+                            except ValueError:
+                                pass
+    
+        # There isn't a whitelist for this indicator type. Just assume it's good.
+        else:
+            good_indicators.append(ind)
+    
+    if extend_whitelist:
+        # Now loop through the bad indicator list to see if any of
+        # these indicators have relationships with any indicators that we
+        # determined were good. If so, we should treat those indicators as
+        # also being bad. For example, if we have a URL indicator (and thus
+        # also a domain name and URI path indicator), but the domain is
+        # whitelisted, we assume we don't want to bother adding the URI
+        # path or the URL as an indicator.
+        for bad_indicator in bad_indicators:
+            # Iterate over a copy of the good_indicators list so that
+            # we can remove elements from the actual list at the same time.
+            for good_indicator in good_indicators[:]:
+                if bad_indicator.indicator in good_indicator.relationships:
+                    good_indicators.remove(good_indicator)
+                    logger.debug("Removed indicator \"" + good_indicator.indicator + "\" based on bad relationship to \"" + bad_indicator.indicator + "\"")
+        
+    if merge:
+        # Merge the indicators if necessary.
+        good_indicators = merge_duplicate_indicators(good_indicators)
+    
+    return good_indicators
 
 def read_relationships_csv(csv_path):
     logger = logging.getLogger()
@@ -265,33 +400,28 @@ def read_relationships_csv(csv_path):
 
     return sorted(list(relationships))
 
-def write_relationships_csv(indicator_list, csv_path, config_path=None, append=True, whitelist=True, merge=True):
+def write_relationships_csv(indicator_list, csv_path, append=True, merge=True):
     logger = logging.getLogger()
-    logger.debug("Writing relationships " + csv_path)
+    logger.debug("Writing relationships: " + csv_path)
 
-    # Make sure we are dealing with a list of Indicator objects.
-    if all(isinstance(indicator, Indicator) for indicator in indicator_list):
-        if whitelist:
-            indicator_list = run_whitelist(indicator_list, config_path=config_path)
+    new_relationships = get_unique_relationships(indicator_list)
         
-        new_relationships = get_unique_relationships(indicator_list)
-        
-        if os.path.exists(csv_path):
-            existing_relationships = read_relationships_csv(csv_path)
-        else:
-            existing_relationships = []
+    if os.path.exists(csv_path):
+        existing_relationships = read_relationships_csv(csv_path)
+    else:
+        existing_relationships = []
 
-        if append:
-            new_relationships += existing_relationships
+    if append:
+        new_relationships += existing_relationships
 
-        if merge:
-            new_relationships = merge_duplicate_relationships(existing_relationships, new_relationships)
+    if merge:
+        new_relationships = merge_duplicate_relationships(existing_relationships, new_relationships)
 
-        with open(csv_path, "w", newline="") as c:
-            csv_writer = csv.writer(c)
+    with open(csv_path, "w", newline="") as c:
+        csv_writer = csv.writer(c)
 
-            for relationship in new_relationships:
-                csv_writer.writerow(relationship)
+        for relationship in new_relationships:
+            csv_writer.writerow(relationship)
 
 def read_indicators_csv(csv_path, merge=True):
     logger = logging.getLogger()
@@ -340,63 +470,47 @@ def read_indicators_csv(csv_path, merge=True):
     else:
         return indicators
 
-def write_indicators_csv(indicator_list, csv_path, append=True, config_path=None, whitelist=True, merge=True):
+def write_indicators_csv(indicator_list, csv_path, append=True, merge=True):
     logger = logging.getLogger()
-    logger.debug("Writing indicators " + csv_path)
+    logger.debug("Writing indicators: " + csv_path)
 
-    # Make sure we are dealing with a list of Indicator objects.
-    if all(isinstance(indicator, Indicator) for indicator in indicator_list):            
-        if os.path.exists(csv_path):
-            existing_indicators = read_indicators_csv(csv_path)
-        else:
-            existing_indicators = []
+    if os.path.exists(csv_path):
+        existing_indicators = read_indicators_csv(csv_path)
+    else:
+        existing_indicators = []
             
-        if append:
-            indicator_list += existing_indicators
+    if append:
+        indicator_list += existing_indicators
 
-        if merge:
-            indicator_list = merge_duplicate_indicators(indicator_list)
+    if merge:
+        indicator_list = merge_duplicate_indicators(indicator_list)
             
-        if whitelist:
-            indicator_list = run_whitelist(indicator_list, config_path=config_path)
+    with open(csv_path, "w", newline="") as c:
+        csv_writer = csv.writer(c)
+        csv_writer.writerow(Indicator.indicator_csv_header)
 
-        with open(csv_path, "w", newline="") as c:
-            csv_writer = csv.writer(c)
-            csv_writer.writerow(Indicator.indicator_csv_header)
-
-            for indicator in indicator_list:
-                csv_writer.writerow(indicator.csv_line())
+        for indicator in indicator_list:
+            csv_writer.writerow(indicator.csv_line())
 
 def get_indicators_with_tag(tag, indicator_list):
-    # Make sure we are dealing with a list of Indicator objects.
-    if all(isinstance(indicator, Indicator) for indicator in indicator_list):
-        return [indicator for indicator in indicator_list if tag in indicator.tags]
-    else:
-        raise ValueError("get_indicators_with_tag requires a list of Indicator objects")
+    return [indicator for indicator in indicator_list if tag in indicator.tags]
 
 def get_indicators_with_value(value, indicator_list):
-    # Make sure we are dealing with a list of Indicator objects.
-    if all(isinstance(indicator, Indicator) for indicator in indicator_list):
-        return [indicator for indicator in indicator_list if value in indicator.indicator]
-    else:
-        raise ValueError("get_indicators_with_value requires a list of Indicator objects")
+    return [indicator for indicator in indicator_list if value in indicator.indicator]
 
 def get_unique_relationships(indicator_list):
-    # Make sure we are dealing with a list of Indicator objects.
-    if all(isinstance(indicator, Indicator) for indicator in indicator_list):
-        working_list = []
-        # Since self.relationships is just a list of strings, the
-        # implied relationship is between each of those strings and
-        # whatever the value is for self.indicator.
-        for indicator in indicator_list:
-            for relationship in indicator.relationships:
-                rel = (indicator.indicator, relationship)
-                rel_reversed = rel[::-1]
-                if not rel in working_list and not rel_reversed in working_list:
-                    working_list.append(rel)
-        return working_list
-    else:
-        raise ValueError("get_unique_relationships requires a list of Indicator objects")
+    working_list = []
+
+    # Since self.relationships is just a list of strings, the
+    # implied relationship is between each of those strings and
+    # whatever the value is for self.indicator.
+    for indicator in indicator_list:
+        for relationship in indicator.relationships:
+            rel = (indicator.indicator, relationship)
+            rel_reversed = rel[::-1]
+            if not rel in working_list and not rel_reversed in working_list:
+                working_list.append(rel)
+    return working_list
 
 def merge_duplicate_relationships(rel_a, rel_b):
     working_list = []
@@ -409,25 +523,21 @@ def merge_duplicate_relationships(rel_a, rel_b):
     return working_list
 
 def merge_duplicate_indicators(indicator_list):
-    # Make sure we are dealing with a list of Indicator objects.
-    if all(isinstance(indicator, Indicator) for indicator in indicator_list):
-        working_list = []
-        for indicator in indicator_list:
-            # If we found the indicator in our temporary list, pop
-            # it out, merge the tags/relationships, and add it back in.
-            if indicator in working_list:
-                existing_indicator_index = working_list.index(indicator)
-                existing_indicator = working_list.pop(existing_indicator_index)
-                indicator.add_tags(existing_indicator.tags)
-                indicator.add_relationships(existing_indicator.relationships)
-                working_list.append(indicator)
-            else:
-                working_list.append(indicator)
-        return working_list
-    else:
-        raise ValueError("merge_duplicate_indicators requires a list of Indicator objects")
+    working_list = []
+    for indicator in indicator_list:
+        # If we found the indicator in our temporary list, pop
+        # it out, merge the tags/relationships, and add it back in.
+        if indicator in working_list:
+            existing_indicator_index = working_list.index(indicator)
+            existing_indicator = working_list.pop(existing_indicator_index)
+            indicator.add_tags(existing_indicator.tags)
+            indicator.add_relationships(existing_indicator.relationships)
+            working_list.append(indicator)
+        else:
+            working_list.append(indicator)
+    return working_list
         
-def generate_url_indicators(url_list, whitelister=None):
+def generate_url_indicators(url_list):
     indicators = []
     
     # In case we were given a string (a single URL), add it

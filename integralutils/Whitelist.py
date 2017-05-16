@@ -1,16 +1,16 @@
+import logging
 import os
 import re
-import logging
+
 from urllib.parse import urlsplit
 
-from integralutils.BaseLoader import *
-
-class Whitelist(BaseLoader):
-    def __init__(self, config_path=None):
-        # Run the super init to inherit attributes and load the config.
-        super().__init__(config_path=config_path)
-
+class Whitelist():
+    def __init__(self, config):
+        # Initiate logging.
         self.logger = logging.getLogger()
+
+        # Save the config. This should be a ConfigParser object.
+        self.config = config
 
         # This will read your config file and create class variables
         # named <section>_<key>. For example, if your config file has
@@ -23,7 +23,7 @@ class Whitelist(BaseLoader):
             for key in self.config[section]:
                 section_key = section + "_" + key
                 if not hasattr(self, section_key):
-                    self.logger.debug("Loading white/benign list " + self.config[section][key])
+                    self.logger.debug("Loading white/benign list: " + self.config[section][key])
 
                     try:
                         with open(self.config[section][key]) as f:
@@ -38,9 +38,10 @@ class Whitelist(BaseLoader):
                             # Store the lines list at self.<section>_<key>
                             setattr(self, section_key, lines)
                     except Exception:
-                        self.logger.exception("Error loading white/benign list " + self.config[section][key])
-                        raise
+                        self.logger.exception("Error loading white/benign list: " + self.config[section][key])
 
+    # Override __get/setstate__ in case someone
+    # wants to pickle an object of this class.
     def __getstate__(self):
         d = dict(self.__dict__)
         if "logger" in d:
@@ -61,23 +62,29 @@ class Whitelist(BaseLoader):
 
     def is_ip_whitelisted(self, ip):
         if hasattr(self, "Whitelists_ip"):
-            for regex in self.Whitelists_ip:
-                pattern = re.compile(regex)
-                if pattern.search(ip):
-                    return True
+            if ip in self.Whitelists_ip:
+                return True
             else:
-                return False
+                for regex in self.Whitelists_ip:
+                    pattern = re.compile(regex)
+                    if pattern.search(ip):
+                        return True
+                else:
+                    return False
         else:
             return False
         
     def is_ip_benign(self, ip):
         if hasattr(self, "Benignlists_ip"):
-            for regex in self.Benignlists_ip:
-                pattern = re.compile(regex)
-                if pattern.search(ip):
-                    return True
+            if ip in self.Benignlists_ip:
+                return True
             else:
-                return False
+                for regex in self.Benignlists_ip:
+                    pattern = re.compile(regex)
+                    if pattern.search(ip):
+                        return True
+                else:
+                    return False
         else:
             return False
         

@@ -1,18 +1,26 @@
+import hashlib
 import json
-import re
 import logging
-import configparser
+import os
+import pickle
+import re
+import sys
 
-from integralutils.BaseLoader import *
-from integralutils import RegexHelpers
-from integralutils import Indicator
-from integralutils import Whitelist
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
+
+import RegexHelpers
+import Indicator
+import Whitelist
 
 def detect_sandbox(json_path):
     logger = logging.getLogger()
 
     # Load the sandbox JSON.
-    logger.debug("Loading sandbox report JSON: " + json_path)
+    logger.debug("Detecting sandbox report JSON: " + json_path)
     with open(json_path) as json_data:
         report = json.load(json_data)
 
@@ -55,18 +63,27 @@ def detect_sandbox(json_path):
     logger.error("Unable to detect sandbox.")
     return ""
 
-class BaseSandboxParser(BaseLoader):
-    def __init__(self, json_path=None, config_path=None, whitelister=None):
-        # Run the super init to inherit attributes and load the config.
-        super().__init__(config_path=config_path)
-
+class BaseSandboxParser():
+    def __init__(self, config, json_path=None, whitelister=None):
+        # Initiate logging.
         self.logger = logging.getLogger()
 
-        if whitelister:
-            self.whitelister = whitelister
-        else:
-            self.whitelister = Whitelist.Whitelist(config_path=config_path)
+        # Save the config. This should be a ConfigParser object.
+        self.config = config
+
+        # Save the whitelister. This should be a Whitelist object.
+        self.whitelister = whitelister
+            
+        # Check if we are verifying requests.
+        if self.config["Requests"]["verify"].lower() == "true":
+            self.requests_verify = True
         
+            # Now check if we want to use a custom CA cert to do so.
+            if "ca_cert" in self.config["Requests"]:
+                self.requests_verify = self.config["Requests"]["ca_cert"]
+        else:
+            self.requests_verify = False
+
         self.iocs                 = []
         self.sandbox_name         = ""
         self.sandbox_display_name = ""
@@ -95,16 +112,37 @@ class BaseSandboxParser(BaseLoader):
         self.started_services     = []
         
         # Figure out where we want to save the screenshots.
+        repo_path = ""
         if "screenshot_repository" in self.config["BaseSandboxParser"]:
-            self.screenshot_repository = self.config["BaseSandboxParser"]["screenshot_repository"]
+            this_dir = os.path.dirname(__file__)
+            repo_path = os.path.realpath(os.path.join(this_dir, self.config["BaseSandboxParser"]["screenshot_repository"]))
+            self.logger.debug("Saving screenshots to cache: " + repo_path)
+
+        if os.path.exists(repo_path):
+            self.screenshot_repository = repo_path
         else:
-            self.screenshot_repository = None
+            self.screenshot_repository = ""
+
+        # Figure out where we want to save the sandbox cache.
+        cache_path = ""
+        if "sandbox_cache" in self.config["BaseSandboxParser"]:
+            this_dir = os.path.dirname(__file__)
+            cache_path = os.path.realpath(os.path.join(this_dir, self.config["BaseSandboxParser"]["sandbox_cache"]))
+            self.logger.debug("Saving sandbox cache to: " + cache_path)
+
+        if os.path.exists(cache_path):
+            self.cache_path = cache_path
+        else:
+            self.cache_path = ""
         
         # Load the report's JSON.
         if json_path:
             self.logger.debug("Loading sandbox JSON: " + json_path)
+            self.json_path = json_path
             self.report = self.load_json(json_path)
 
+    # Override __get/setstate__ in case someone
+    # wants to pickle an object of this class.
     def __getstate__(self):
         d = dict(self.__dict__)
         if "logger" in d:
@@ -122,6 +160,52 @@ class BaseSandboxParser(BaseLoader):
             
     def __hash__(self):
         return hash((self.md5, self.sandbox_url))
+
+    # Function to load this report from the sandbox cache.
+    def load_from_cache(self):
+        if self.cache_path:
+            report_md5 = self.md5_file_path(self.json_path)
+            saved_report_path = os.path.join(self.cache_path, report_md5)
+
+            if os.path.exists(saved_report_path):
+                self.logger.info("Loading sandbox report from cache: " + saved_report_path)
+                try:
+                    with open(saved_report_path, "rb") as s:
+                        report = pickle.load(s)
+                        report.logger = logging.getLogger()
+                    
+                    if report:
+                        self.__dict__.update(report.__dict__)
+                        return True
+                except Exception:
+                    self.logger.exception("Unable to unpickle sandbox report: " + saved_report_path)
+        return False
+
+    # Function to save this report to the sandbox cache.
+    def save_to_cache(self):
+        if self.cache_path:
+            report_md5 = self.md5_file_path(self.json_path)
+            saved_report_path = os.path.join(self.cache_path, report_md5)
+            self.logger.debug("Saving sandbox report to cache: " + saved_report_path)
+
+            try:
+                with open(saved_report_path, "wb") as p:
+                    pickle.dump(self, p)
+            except Exception:
+                self.logger.exception("Unable to pickle sandbox report: " + saved_report_path)
+
+    # Function to get the MD5 of a file path. Currently used
+    # to build the filename of cached reports.
+    def md5_file_path(self, file_path):
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            hasher = hashlib.md5()
+            with open(file_path, "rb") as f:
+                buffer = f.read()
+                hasher.update(buffer)
+                
+            return hasher.hexdigest()
+        else:
+            return ""
         
     # Function to load and return the report's JSON.
     def load_json(self, json_path):
@@ -153,7 +237,7 @@ class BaseSandboxParser(BaseLoader):
         
     
     # Build a list of Indicators from the report.
-    def extract_indicators(self, check_whitelist=True):
+    def extract_indicators(self, check_whitelist=False):
         # Make an Indicator for the sample's MD5 hash.
         if RegexHelpers.is_md5(self.md5):
             try:
@@ -340,7 +424,7 @@ class BaseSandboxParser(BaseLoader):
                 
         # Make Indicators for any memory URLs. Currently, only VxStream
         # has this memory URL feature.
-        indicator_list = Indicator.generate_url_indicators(self.memory_urls, whitelister=self.whitelister)
+        indicator_list = Indicator.generate_url_indicators(self.memory_urls)
 
         # Add some extra tags to the generated indicators and
         # then add them to our main IOC list.
@@ -349,7 +433,7 @@ class BaseSandboxParser(BaseLoader):
             self.iocs.append(ind)
                 
         # Make Indicators for any URLs found in the sample's strings.
-        indicator_list = Indicator.generate_url_indicators(self.strings_urls, whitelister=self.whitelister)
+        indicator_list = Indicator.generate_url_indicators(self.strings_urls)
 
         # Add some extra tags to the generated indicators and
         # then add them to our main IOC list.
@@ -358,7 +442,7 @@ class BaseSandboxParser(BaseLoader):
             self.iocs.append(ind)
 
         # Make Indicators for any URLs found in the sample's process tree.
-        indicator_list = Indicator.generate_url_indicators(self.process_tree_urls, whitelister=self.whitelister)
+        indicator_list = Indicator.generate_url_indicators(self.process_tree_urls)
 
         # Add some extra tags to the generated indicators and
         # then add them to our main IOC list.
@@ -377,7 +461,8 @@ class BaseSandboxParser(BaseLoader):
                 
         # Run the IOCs through the whitelists if requested.
         if check_whitelist:
-            self.iocs = Indicator.run_whitelist(self.iocs, whitelister=self.whitelister)
+            self.logger.debug("Running whitelists against sandbox report: " + self.sandbox_url)
+            self.iocs = Indicator.run_whitelist(self.config, self.iocs)
             
         # Finally merge the IOCs so we don't have any duplicates.
         self.iocs = Indicator.merge_duplicate_indicators(self.iocs)
@@ -496,11 +581,10 @@ class BaseSandboxParser(BaseLoader):
         try:
             for host in contacted_hosts:
                 if isinstance(host, ContactedHost):
-                    if not self.whitelister.is_ip_whitelisted(host.ipv4):
-                        host.associated_domains_string = ""
-                        for domain in host.associated_domains:
-                            host.associated_domains_string += domain["domain"] + " (" + domain["date"] + ") "
-                        self._contacted_hosts.append(host)
+                    host.associated_domains_string = ""
+                    for domain in host.associated_domains:
+                        host.associated_domains_string += domain["domain"] + " (" + domain["date"] + ") "
+                    self._contacted_hosts.append(host)
         except TypeError:
             pass
         
@@ -525,28 +609,27 @@ class BaseSandboxParser(BaseLoader):
             for file in dropped_files:
                 if isinstance(file, DroppedFile):
                     if not self.whitelister.is_file_name_whitelisted(file.filename):
-                        if not self.whitelister.is_file_path_whitelisted(file.path):
-                            # If there are file name restrictions, check if this file matches.
-                            if dropped_file_names:
-                                if any(name in file.filename for name in dropped_file_names):
-                                    if file.md5:
-                                        if not file in self._dropped_files:
-                                            self._dropped_files.append(file)
-                                    else:
-                                        # Append the dropped file if there is not already one with the same name.
-                                        if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
-                                            self._dropped_files.append(file)
+                        # If there are file name restrictions, check if this file matches.
+                        if dropped_file_names:
+                            if any(name in file.filename for name in dropped_file_names):
+                                if file.md5:
+                                    if not file in self._dropped_files:
+                                        self._dropped_files.append(file)
+                                else:
+                                    # Append the dropped file if there is not already one with the same name.
+                                    if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
+                                        self._dropped_files.append(file)
 
-                            # If there are any file type restrictions, check if this file matches.
-                            if dropped_file_types:
-                                if any(t in file.type for t in dropped_file_types):
-                                    if file.md5:
-                                        if not file in self._dropped_files:
-                                            self._dropped_files.append(file)
-                                    else:
-                                        # Append the dropped file if there is not already one with the same name.
-                                        if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
-                                            self._dropped_files.append(file)
+                        # If there are any file type restrictions, check if this file matches.
+                        if dropped_file_types:
+                            if any(t in file.type for t in dropped_file_types):
+                                if file.md5:
+                                    if not file in self._dropped_files:
+                                        self._dropped_files.append(file)
+                                else:
+                                    # Append the dropped file if there is not already one with the same name.
+                                    if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
+                                        self._dropped_files.append(file)
 
         except TypeError:
             pass
@@ -563,8 +646,7 @@ class BaseSandboxParser(BaseLoader):
             for request in http_requests:
                 if isinstance(request, HttpRequest):
                     url = "http://" + request.host + request.uri
-                    if not self.whitelister.is_url_whitelisted(url):
-                        self._http_requests.append(request)
+                    self._http_requests.append(request)
         except TypeError:
             pass
         
@@ -579,15 +661,10 @@ class BaseSandboxParser(BaseLoader):
         try:
             for request in dns_requests:
                 if isinstance(request, DnsRequest):
-                    if not self.whitelister.is_domain_whitelisted(request.request):
-                        if RegexHelpers.is_ip(request.answer):
-                            if not self.whitelister.is_ip_whitelisted(request.answer):
-                                self._dns_requests.append(request)
-                        elif RegexHelpers.is_domain(request.answer):
-                            if not self.whitelister.is_domain_whitelisted(request.answer):
-                                self._dns_requests.append(request)
-                        else:
-                            self._dns_requests.append(request)
+                    if RegexHelpers.is_ip(request.answer):
+                        self._dns_requests.append(request)
+                    elif RegexHelpers.is_domain(request.answer):
+                        self._dns_requests.append(request)
         except TypeError:
             pass
         
@@ -612,15 +689,13 @@ class BaseSandboxParser(BaseLoader):
         
         # If we were given a single string, add that.
         if RegexHelpers.is_url(str(process_tree_urls)):
-            if not self.whitelister.is_url_whitelisted(str(process_tree_urls)):
-                self._process_tree_urls.append(str(process_tree_urls))
+            self._process_tree_urls.append(str(process_tree_urls))
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for url in process_tree_urls:
                     if RegexHelpers.is_url(str(url)):
-                        if not self.whitelister.is_url_whitelisted(str(url)):
-                            self._process_tree_urls.append(str(url))
+                        self._process_tree_urls.append(str(url))
             except TypeError:
                 pass
             
@@ -654,15 +729,13 @@ class BaseSandboxParser(BaseLoader):
         
         # If we were given a single string, add that.
         if RegexHelpers.is_url(str(strings_urls)):
-            if not self.whitelister.is_url_whitelisted(str(strings_urls)):
-                self._strings_urls.append(str(strings_urls))
+            self._strings_urls.append(str(strings_urls))
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for url in strings_urls:
                     if RegexHelpers.is_url(str(url)):
-                        if not self.whitelister.is_url_whitelisted(str(url)):
-                            self._strings_urls.append(str(url))
+                        self._strings_urls.append(str(url))
             except TypeError:
                 pass
             
@@ -676,15 +749,13 @@ class BaseSandboxParser(BaseLoader):
         
         # If we were given a single string, add that.
         if RegexHelpers.is_url(str(memory_urls)):
-            if not self.whitelister.is_url_whitelisted(str(memory_urls)):
-                self._memory_urls.append(str(memory_urls))
+            self._memory_urls.append(str(memory_urls))
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for url in memory_urls:
                     if RegexHelpers.is_url(str(url)):
-                        if not self.whitelister.is_url_whitelisted(str(url)):
-                            self._memory_urls.append(str(url))
+                        self._memory_urls.append(str(url))
             except TypeError:
                 pass
             
@@ -698,15 +769,13 @@ class BaseSandboxParser(BaseLoader):
         
         # If we were given a single string, add that.
         if isinstance(mutexes, str):
-            if not self.whitelister.is_mutex_whitelisted(mutexes):
-                self._mutexes.append(mutexes)
+            self._mutexes.append(mutexes)
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for mutex in mutexes:
                     if isinstance(mutex, str):
-                        if not self.whitelister.is_mutex_whitelisted(mutex):
-                            self._mutexes.append(mutex)
+                        self._mutexes.append(mutex)
             except TypeError:
                 pass
             
@@ -779,117 +848,154 @@ class BaseSandboxParser(BaseLoader):
         self._iocs = []
         
         # If we were given a single Indicator, add that.
-        if isinstance(iocs, Indicator.Indicator):
+        if not isinstance(iocs, list) and not isinstance(iocs, set):
             self._iocs.append(iocs)
         # Otherwise, try and process it like a list or set.
         else:
             try:
                 for ioc in iocs:
-                    if isinstance(ioc, Indicator.Indicator):
-                        self._iocs.append(ioc)
+                    self._iocs.append(ioc)
             except TypeError:
                 pass
 
 # Function that takes a list of BaseSandboxParser sub-classes and
 # balls them all up into a single report with deduped attributes
 # (for example it will dedup all of the HTTP requests from the reports).
-def dedup_reports(report_list):
+def dedup_reports(config, report_list, whitelister=None):
     logger = logging.getLogger()
     logger.debug("Deduping sandbox report list")
 
-    dedup_report = BaseSandboxParser()
-    del dedup_report.logger
-    del dedup_report.whitelister
-
+    dedup_report = BaseSandboxParser(config, whitelister=whitelister)
     dedup_report.filename = "Unknown Filename"
     dedup_report.process_tree_list = []
 
     for report in report_list:
-        if issubclass(type(report), BaseSandboxParser):
-            # Check if the filename is set and it is not WildFire's "sample".
-            if report.filename and report.filename != "sample":
-                dedup_report.filename = report.filename
+        # Check if the filename is set and it is not WildFire's "sample".
+        if report.filename and report.filename != "sample":
+            dedup_report.filename = report.filename
 
-            if report.md5:
-                dedup_report.md5 = report.md5
+        if report.md5:
+            dedup_report.md5 = report.md5
 
-            if report.sha1:
-                dedup_report.sha1 = report.sha1
+        if report.sha1:
+            dedup_report.sha1 = report.sha1
 
-            if report.sha256:
-                dedup_report.sha256 = report.sha256
+        if report.sha256:
+            dedup_report.sha256 = report.sha256
 
-            if report.sha512:
-                dedup_report.sha512 = report.sha512
+        if report.sha512:
+            dedup_report.sha512 = report.sha512
 
-            if report.ssdeep:
-                dedup_report.ssdeep = report.ssdeep
+        if report.ssdeep:
+            dedup_report.ssdeep = report.ssdeep
 
-            if report.malware_family:
-                dedup_report.malware_family = report.malware_family
+        if report.malware_family:
+            dedup_report.malware_family = report.malware_family
 
-            # Dedup the IOCs.
-            for ioc in report.iocs:
-                if ioc not in dedup_report.iocs:
-                    dedup_report.iocs.append(ioc)
+        # Dedup the IOCs.
+        for ioc in report.iocs:
+            if ioc not in dedup_report.iocs:
+                dedup_report.iocs.append(ioc)
             
-            # Dedup the contacted hosts.
-            for host in report.contacted_hosts:
-                if host not in dedup_report.contacted_hosts:
+        # Dedup the contacted hosts.
+        for host in report.contacted_hosts:
+            if host not in dedup_report.contacted_hosts:
+                if whitelister:
+                    if not whitelister.is_ip_whitelisted(host.ipv4):
+                        dedup_report.contacted_hosts.append(host)
+                else:
                     dedup_report.contacted_hosts.append(host)
 
-            # Dedup the dropped files.
-            for file in report.dropped_files:
-                if file not in dedup_report.dropped_files:
+        # Dedup the dropped files.
+        for file in report.dropped_files:
+            if file not in dedup_report.dropped_files:
+                if whitelister:
+                    if not whitelister.is_file_path_whitelisted(file.path):
+                        if not whitelister.is_file_name_whitelisted(file.filename):
+                            dedup_report.dropped_files.append(file)
+                else:
                     dedup_report.dropped_files.append(file)
 
-            # Dedup the HTTP requests.
-            for request in report.http_requests:
-                if request not in dedup_report.http_requests:
+        # Dedup the HTTP requests.
+        for request in report.http_requests:
+            if request not in dedup_report.http_requests:
+                if whitelister:
+                    if RegexHelpers.is_ip(request.host):
+                        if not whitelister.is_ip_whitelisted(request.host):
+                            dedup_report.http_requests.append(request)
+                    else:
+                        if not whitelister.is_domain_whitelisted(request.host):
+                            dedup_report.http_requests.append(request)
+                else:
                     dedup_report.http_requests.append(request)
 
-            # Dedup the DNS requests.
-            for request in report.dns_requests:
-                if request not in dedup_report.dns_requests:
+        # Dedup the DNS requests.
+        for request in report.dns_requests:
+            if request not in dedup_report.dns_requests:
+                if whitelister:
+                    if not whitelister.is_domain_whitelisted(request.request):
+                        if RegexHelpers.is_ip(request.answer):
+                            if not whitelister.is_ip_whitelisted(request.answer):
+                                dedup_report.dns_requests.append(request)
+                        else:
+                            if not whitelister.is_domain_whitelisted(request.answer):
+                                dedup_report.dns_requests.append(request)
+                else:
                     dedup_report.dns_requests.append(request)
 
-            # Dedup the process tree URLs.
-            for url in report.process_tree_urls:
-                if url not in dedup_report.process_tree_urls:
+        # Dedup the process tree URLs.
+        for url in report.process_tree_urls:
+            if url not in dedup_report.process_tree_urls:
+                if whitelister:
+                    if not whitelister.is_url_whitelisted(url):
+                        dedup_report.process_tree_urls.append(url)
+                else:
                     dedup_report.process_tree_urls.append(url)
 
-            # Dedup the memory URLs.
-            for url in report.memory_urls:
-                if url not in dedup_report.memory_urls:
+        # Dedup the memory URLs.
+        for url in report.memory_urls:
+            if url not in dedup_report.memory_urls:
+                if whitelister:
+                    if not whitelister.is_url_whitelisted(url):
+                        dedup_report.memory_urls.append(url)
+                else:
                     dedup_report.memory_urls.append(url)
 
-            # Dedup the strings URLs.
-            for url in report.strings_urls:
-                if url not in dedup_report.strings_urls:
+        # Dedup the strings URLs.
+        for url in report.strings_urls:
+            if url not in dedup_report.strings_urls:
+                if whitelister:
+                    if not whitelister.is_url_whitelisted(url):
+                        dedup_report.strings_urls.append(url)
+                else:
                     dedup_report.strings_urls.append(url)
 
-            # Dedup the mutexes.
-            for mutex in report.mutexes:
-                if mutex not in dedup_report.mutexes:
+        # Dedup the mutexes.
+        for mutex in report.mutexes:
+            if mutex not in dedup_report.mutexes:
+                if whitelister:
+                    if not whitelister.is_mutex_whitelisted(mutex):
+                        dedup_report.mutexes.append(mutex)
+                else:
                     dedup_report.mutexes.append(mutex)
 
-            # Dedup the resolved APIs.
-            for api in report.resolved_apis:
-                if api not in dedup_report.resolved_apis:
-                    dedup_report.resolved_apis.append(api)
+        # Dedup the resolved APIs.
+        for api in report.resolved_apis:
+            if api not in dedup_report.resolved_apis:
+                dedup_report.resolved_apis.append(api)
 
-            # Dedup the created services.
-            for service in report.created_services:
-                if service not in dedup_report.created_services:
-                    dedup_report.created_services.append(service)
+        # Dedup the created services.
+        for service in report.created_services:
+            if service not in dedup_report.created_services:
+                dedup_report.created_services.append(service)
 
-            # Dedup the started services.
-            for service in report.started_services:
-                if service not in dedup_report.started_services:
-                    dedup_report.started_services.append(service)
+        # Dedup the started services.
+        for service in report.started_services:
+            if service not in dedup_report.started_services:
+                dedup_report.started_services.append(service)
 
-            # Finally, just add the process tree as-is.
-            dedup_report.process_tree_list.append(str(report.process_tree))
+        # Finally, just add the process tree as-is.
+        dedup_report.process_tree_list.append(str(report.process_tree))
 
     return dedup_report
     

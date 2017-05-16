@@ -10,18 +10,34 @@ from dateutil import tz
 from dateutil.tz import tzlocal
 import datetime
 from bs4 import BeautifulSoup
+import sys
 
-from integralutils import RegexHelpers
-from integralutils import Indicator
-from integralutils import Whitelist
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
+
+import RegexHelpers
+import Indicator
+import Whitelist
 
 class EmailParser():
-    def __init__(self, smtp_path=None, smtp_text=None, attached_email=True, whitelister=None, check_whitelist=True):
+    def __init__(self, config, smtp_path=None, smtp_text=None, attached_email=True, whitelister=None, check_whitelist=False):
+        # Initiate logging.
         self.logger = logging.getLogger()
+
+        # Save the config. This should be a ConfigParser object.
+        self.config = config
+
+        # Save the whitelister. This should be a Whitelist object.
+        self.whitelister = whitelister
+        self.check_whitelist = check_whitelist
 
         # Check that we got at least an SMTP path or text:
         if not smtp_path and not smtp_text:
-            raise ValueError("You must specify either an SMTP path or the SMTP text.")
+            self.logger.critical("You must specify either an SMTP path or the SMTP text.")
+            return None
             
         # In case we received both, default to use the smtp_path over the smtp_text.
         if smtp_path:
@@ -31,7 +47,7 @@ class EmailParser():
                 self.path = smtp_path
                 self.name = os.path.basename(smtp_path)
 
-            self.logger.debug("Reading e-mail " + self.path)
+            self.logger.info("Parsing e-mail: " + self.path)
             with open(self.path) as s:
                 smtp_stream = s.read().splitlines()
         else:
@@ -449,12 +465,15 @@ class EmailParser():
         self.received_time = self._get_received_time()
         
         # Run the IOCs through the whitelists if requested.
-        if check_whitelist:
-            self.iocs = Indicator.run_whitelist(self.iocs)
+        if self.whitelister and self.check_whitelist:
+            self.logger.debug("Running whitelists against e-mail indicators.")
+            self.iocs = Indicator.run_whitelist(self.config, self.iocs)
             
         # Finally merge the IOCs so we don't have any duplicates.
         self.iocs = Indicator.merge_duplicate_indicators(self.iocs)
 
+    # Override __get/setstate__ in case someone
+    # wants to pickle an object of this class.
     def __getstate__(self):
         d = dict(self.__dict__)
         if "logger" in d:
@@ -580,9 +599,9 @@ class EmailParser():
                     attachment_dict["md5"] = md5_hash
                     attachment_dict["sha256"] = sha256_hash
                     attachment_dict["name"] = ""
-                    attachment_dict["create_date"] = None
-                    attachment_dict["mod_date"] = None
-                    attachment_dict["read_date"] = None
+                    attachment_dict["create_date"] = "" 
+                    attachment_dict["mod_date"] = ""
+                    attachment_dict["read_date"] = ""
 
                     # Find the attachment name. Normally this follows a specific format
                     # and is called 'filename=' but recently I've seen some that are in

@@ -1,43 +1,48 @@
-import os
-import tempfile
 import hashlib
 import logging
+import os
+import tempfile
+import sys
+
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
 
 from pymongo import MongoClient
 from pymongo.errors import *
 
-from integralutils import BaseSandboxParser
-from integralutils import BaseAlert
-from integralutils import ACEAlert
-from integralutils import Indicator
-from integralutils import EmailParser
-from integralutils import RegexHelpers
-from integralutils import Whitelist
-from integralutils.BaseConfluencePage import *
+import BaseSandboxParser
+import BaseAlert
+import ACEAlert
+import Indicator
+import EmailParser
+import RegexHelpers
+import Whitelist
+from BaseConfluencePage import *
 
 class ConfluenceEventPage(BaseConfluencePage):
-    def __init__(self, page_title, parent_title=None, config_path=None):
+    def __init__(self, config, page_title, parent_title="", whitelister=None):
         # Run the super init to load the config and cache the page if it exists.
-        super().__init__(page_title, parent_title=parent_title, config_path=config_path)
+        super().__init__(config, page_title, parent_title=parent_title, whitelister=whitelister)
 
-        self.logger = logging.getLogger()
-        self.logger.debug("Doing work on Confluence page " + page_title)
-
-        # First check if there is a custom template to use.
-        if "template" in self.config["ConfluenceEventPage"]:
-            template_path = self.config["ConfluenceEventPage"]["template"]
-        # If not, use the one bundled with integralutils.
-        else:
-            template_path = os.path.join(os.path.dirname(__file__), "etc", "confluence_event_template.txt")
-
-        # Spin up a whitelist object.
-        self.whitelister = Whitelist.Whitelist(config_path=config_path)
+        self.logger.info("Working on Confluence page: " + page_title)
         
         # If the page does not exist, spin up the template.
         if not self.page_exists():
-            self.logger.debug("Confluence page " + page_title + " does not exist. Using template: " + template_path)
-            self.soup = self.soupify(open(template_path).read())
+            template_path = os.path.realpath(os.path.join(__file__, self.config["ConfluenceEventPage"]["template_path"]))
 
+            self.logger.debug("Confluence page " + page_title + " does not exist. Using template: " + template_path)
+            try:
+                with open(template_path) as t:
+                    template_text = t.read()
+                self.soup = self.soupify(template_text)
+            except Exception:
+                self.logger.exception("Unable to open template: " + template_path)
+
+    # Override __get/setstate__ in case someone
+    # wants to pickle an object of this class.
     def __getstate__(self):
         d = dict(self.__dict__)
         if "logger" in d:
@@ -109,7 +114,7 @@ class ConfluenceEventPage(BaseConfluencePage):
         self.update_section(div, old_section_id="time_table")
         
     
-    def update_artifacts(self, path, server=None):
+    def update_artifacts(self, path):
         self.logger.debug("Updating Artifacts section.")
 
         # Create the parent div tag.
@@ -120,10 +125,11 @@ class ConfluenceEventPage(BaseConfluencePage):
         header.string = "Artifact Repository"
         
         # If we were given a server name/address, add it first.
-        if server:
+        if "artifact_host" in self.config["ConfluenceEventPage"]:
+            artifact_host = self.config["ConfluenceEventPage"]["artifact_host"]
             server_div = self.new_tag("div", parent=div)
             server_div["style"] = "font-weight: bold"
-            server_div.string = server
+            server_div.string = artifact_host
             
         # Add the path
         path_div = self.new_tag("div", parent=div)
@@ -157,25 +163,24 @@ class ConfluenceEventPage(BaseConfluencePage):
         # Set up the table body rows.
         tbody = self.new_tag("tbody", parent=table)
         for alert in alert_list:
-            if isinstance(alert, BaseAlert.BaseAlert):
-                tr = self.new_tag("tr", parent=tbody)
+            tr = self.new_tag("tr", parent=tbody)
 
-                td = self.new_tag("td", parent=tr)
-                url = self.new_tag("a", parent=td)
-                url["href"] = alert.alert_url
-                url.string = "Alert"
+            td = self.new_tag("td", parent=tr)
+            url = self.new_tag("a", parent=td)
+            url["href"] = alert.alert_url
+            url.string = "Alert"
 
-                td = self.new_tag("td", parent=tr)
-                td.string = alert.time
+            td = self.new_tag("td", parent=tr)
+            td.string = alert.time
 
-                td = self.new_tag("td", parent=tr)
-                td.string = alert.description
+            td = self.new_tag("td", parent=tr)
+            td.string = alert.description
 
-                td = self.new_tag("td", parent=tr)
-                td.string = alert.tool
+            td = self.new_tag("td", parent=tr)
+            td.string = alert.tool
 
-                td = self.new_tag("td", parent=tr)
-                td.string = alert.type
+            td = self.new_tag("td", parent=tr)
+            td.string = alert.type
         
         self.update_section(div, old_section_id="alerts")
         
@@ -188,6 +193,10 @@ class ConfluenceEventPage(BaseConfluencePage):
         
         # Continue the section if we were given some potential indicators.
         if potential_indicators:
+            potential_indicators = list(set(potential_indicators))
+
+            self.logger.debug("Searching CRITS for " + str(len(potential_indicators)) + " indicators")
+
             # Make the section header.
             header = self.new_tag("h2", parent=div)
             header.string = "CRITS Analysis"
@@ -201,55 +210,55 @@ class ConfluenceEventPage(BaseConfluencePage):
             port = int(self.config["ConfluenceEventPage"]["crits_mongo_port"])
             
             try:
+                self.logger.debug("Connecting to CRITS " + host + ":" + str(port))
                 client = MongoClient(host, port)
                 db = client.crits
 
                 for potential_indicator in potential_indicators:
-                    if isinstance(potential_indicator, Indicator.Indicator):
-                        # Search CRITS for any Analyzed indicators matching this potential one.
-                        crits_indicators = db.indicators.find( { 'status' : 'Analyzed', 'value' : potential_indicator.indicator } )
+                    # Search CRITS for any Analyzed indicators matching this potential one.
+                    crits_indicators = db.indicators.find( { 'status' : 'Analyzed', 'value' : potential_indicator.indicator } )
 
-                        # Only continue if we got back at least 1 indicator.
-                        if crits_indicators.count() > 0:
-                            pre["style"] = "border:1px solid gray;padding:5px;"
+                    # Only continue if we got back at least 1 indicator.
+                    if crits_indicators.count() > 0:
+                        pre["style"] = "border:1px solid gray;padding:5px;"
                             
-                            for crits_indicator in crits_indicators:
-                                # Get all of the indicator's unique references.
-                                references = set()
-                                source_names = set()
-                                for source in crits_indicator["source"]:
-                                    source_names.add(source["name"])
-                                    for instance in source["instances"]:
-                                        references.add(instance["reference"])
-                                references = sorted(list(references))
-                                source_names = sorted(list(source_names))
+                        for crits_indicator in crits_indicators:
+                            # Get all of the indicator's unique references.
+                            references = set()
+                            source_names = set()
+                            for source in crits_indicator["source"]:
+                                source_names.add(source["name"])
+                                for instance in source["instances"]:
+                                    references.add(instance["reference"])
+                            references = sorted(list(references))
+                            source_names = sorted(list(source_names))
 
-                                # We only want to display the indicator if either:
-                                # 1) This wiki page is not a reference, OR 
-                                # 2) There are multiple references.
-                                if len(references) > 1 or not self.get_page_url() in references:
-                                    # Extract the values we care about.
-                                    ind_value = crits_indicator["value"]
-                                    ind_type = crits_indicator["type"]
-                                    ind_tags = crits_indicator["bucket_list"]
-                                    ind_campaigns = set()
-                                    for campaign in crits_indicator["campaign"]:
-                                        ind_campaigns.add(campaign["name"])
-                                    ind_campaigns = sorted(list(ind_campaigns))
+                            # We only want to display the indicator if either:
+                            # 1) This wiki page is not a reference, OR 
+                            # 2) There are multiple references.
+                            if len(references) > 1 or not self.get_page_url() in references:
+                                # Extract the values we care about.
+                                ind_value = crits_indicator["value"]
+                                ind_type = crits_indicator["type"]
+                                ind_tags = crits_indicator["bucket_list"]
+                                ind_campaigns = set()
+                                for campaign in crits_indicator["campaign"]:
+                                    ind_campaigns.add(campaign["name"])
+                                ind_campaigns = sorted(list(ind_campaigns))
 
-                                    # Add them to the pre's text.
-                                    pre.string += ind_type + ": " + ind_value + "\n"
-                                    pre.string += "Sources: " + ", ".join(source_names) + "\n"
-                                    pre.string += "Campaigns: " + ", ".join(ind_campaigns) + "\n"
-                                    pre.string += "Tags: " + ", ".join(ind_tags) + "\n"
+                                # Add them to the pre's text.
+                                pre.string += ind_type + ": " + ind_value + "\n"
+                                pre.string += "Sources: " + ", ".join(source_names) + "\n"
+                                pre.string += "Campaigns: " + ", ".join(ind_campaigns) + "\n"
+                                pre.string += "Tags: " + ", ".join(ind_tags) + "\n"
                                     
-                                    for reference in references:
-                                        if not self.get_page_url() == reference:
-                                            pre.string += reference + "\n"
+                                for reference in references:
+                                    if not self.get_page_url() == reference:
+                                        pre.string += reference + "\n"
                                         
-                                    pre.string += "\n"
+                                pre.string += "\n"
             except ServerSelectionTimeoutError:
-                pass
+                self.logger.error("Error connecting to CRITS host " + host + ":" + port) 
         
         self.update_section(div, old_section_id="crits_analysis")
         
@@ -278,47 +287,46 @@ class ConfluenceEventPage(BaseConfluencePage):
         # Set up the table body rows.
         tbody = self.new_tag("tbody", parent=table)
         for email in email_list:
-            if isinstance(email, EmailParser.EmailParser):
-                tr = self.new_tag("tr", parent=tbody)
+            tr = self.new_tag("tr", parent=tbody)
                 
-                td = self.new_tag("td", parent=tr)
-                if RegexHelpers.is_url(email.reference):
-                    link = self.new_tag("a", parent=td)
-                    link["href"] = email.reference
-                    link.string = "Alert"
+            td = self.new_tag("td", parent=tr)
+            if RegexHelpers.is_url(email.reference):
+                link = self.new_tag("a", parent=td)
+                link["href"] = email.reference
+                link.string = "Alert"
 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.received_time
+            td = self.new_tag("td", parent=tr)
+            td.string = email.received_time
                 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.from_address
+            td = self.new_tag("td", parent=tr)
+            td.string = email.from_address
                 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.to_string
+            td = self.new_tag("td", parent=tr)
+            td.string = email.to_string
                 
-                td = self.new_tag("td", parent=tr)
-                if email.decoded_subject:
-                    td.string = email.decoded_subject
-                else:
-                    td.string = email.subject
+            td = self.new_tag("td", parent=tr)
+            if email.decoded_subject:
+                td.string = email.decoded_subject
+            else:
+                td.string = email.subject
                 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.attachments_string
+            td = self.new_tag("td", parent=tr)
+            td.string = email.attachments_string
                 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.md5_string
+            td = self.new_tag("td", parent=tr)
+            td.string = email.md5_string
                 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.cc_string
+            td = self.new_tag("td", parent=tr)
+            td.string = email.cc_string
                 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.bcc_string
+            td = self.new_tag("td", parent=tr)
+            td.string = email.bcc_string
                 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.replyto
+            td = self.new_tag("td", parent=tr)
+            td.string = email.replyto
                 
-                td = self.new_tag("td", parent=tr)
-                td.string = email.message_id
+            td = self.new_tag("td", parent=tr)
+            td.string = email.message_id
                 
         self.update_section(div, old_section_id="phish_email_information")
         
@@ -334,10 +342,9 @@ class ConfluenceEventPage(BaseConfluencePage):
         header.string = "Phish Headers"
         
         # Continue the section if we were given an email.
-        if isinstance(email, EmailParser.EmailParser):
-            pre = self.new_tag("pre", parent=div)
-            pre["style"] = "border:1px solid gray;padding:5px;"
-            pre.string = email.headers
+        pre = self.new_tag("pre", parent=div)
+        pre["style"] = "border:1px solid gray;padding:5px;"
+        pre.string = email.headers
 
         self.update_section(div, old_section_id="phish_headers")
         
@@ -353,13 +360,12 @@ class ConfluenceEventPage(BaseConfluencePage):
         header.string = "Phish Body"
         
         # Continue the section if we were given an email.
-        if isinstance(email, EmailParser.EmailParser):
-            pre = self.new_tag("pre", parent=div)
-            pre["style"] = "border:1px solid gray;padding:5px;"
-            if email.body:
-                pre.string = email.body
-            elif email.html:
-                pre.string = email.html
+        pre = self.new_tag("pre", parent=div)
+        pre["style"] = "border:1px solid gray;padding:5px;"
+        if email.body:
+            pre.string = email.body
+        elif email.html:
+            pre.string = email.html
 
         self.update_section(div, old_section_id="phish_body")
         
@@ -375,10 +381,9 @@ class ConfluenceEventPage(BaseConfluencePage):
             # Dedup the list of users from the alerts.
             users = []
             for alert in alert_list:
-                if isinstance(alert, ACEAlert.ACEAlert):
-                    for user in alert.user_analysis:
-                        if user not in users:
-                            users.append(user)
+                for user in alert.user_analysis:
+                    if user not in users:
+                        users.append(user)
 
             # Only continue if we actually have some users.
             if users:
@@ -409,7 +414,10 @@ class ConfluenceEventPage(BaseConfluencePage):
                     td.string = user["displayName"]
                     
                     td = self.new_tag("td", parent=tr)
-                    td.string = user["mail"]
+                    if isinstance(user["mail"], list):
+                        td.string = ", ".join(user["mail"])
+                    elif isinstance(user["mail"], str):
+                        td.string = user["mail"]
                     
                     td = self.new_tag("td", parent=tr)
                     td.string = user["title"]
@@ -433,7 +441,8 @@ class ConfluenceEventPage(BaseConfluencePage):
         div = self.new_tag("div")
         
         # Get only the non-whitelisted URLs.
-        url_list = [url for url in url_list if not self.whitelister.is_url_whitelisted(url)]
+        if self.whitelister:
+           url_list = [url for url in url_list if not self.whitelister.is_url_whitelisted(url)]
         
         if url_list:
             # Make the section header.
@@ -469,7 +478,7 @@ class ConfluenceEventPage(BaseConfluencePage):
             
             for hash in sandbox_dict:
                 # Get a single deduped version of the reports.
-                dedup_report = BaseSandboxParser.dedup_reports(sandbox_dict[hash])
+                dedup_report = BaseSandboxParser.dedup_reports(self.config, sandbox_dict[hash], whitelister=self.whitelister)
                         
                 # Add a header for the sample's filename.
                 header = self.new_tag("h3", parent=div)
@@ -826,8 +835,9 @@ class ConfluenceEventPage(BaseConfluencePage):
                         url.string = "VT"
 
                         td = self.new_tag("td", parent=tr)
-                        if self.whitelister.is_tor_node(host.ipv4):
-                            td.string = "True"
+                        if self.whitelister:
+                            if self.whitelister.is_tor_node(host.ipv4):
+                                td.string = "True"
 
                         td = self.new_tag("td", parent=tr)
                         td.string = host.ipv4

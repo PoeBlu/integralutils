@@ -8,7 +8,8 @@ setup(name='integralutils',
       author='automationator',
       url='https://github.com/IntegralDefense/integralutils',
       packages=['integralutils'],
-      long_description=open('README.md').read(),
+      with open('README.md') as r:
+          long_description=r.read()
       include_package_data=True,
       #install_requires=[
       #      'beautifulsoup4',

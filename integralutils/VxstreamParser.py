@@ -1,69 +1,80 @@
 import os
 import requests
 import logging
-import configparser
+import sys
 
-from integralutils.BaseSandboxParser import *
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
+
+from BaseSandboxParser import *
 
 class VxstreamParser(BaseSandboxParser):          
-    def __init__(self, json_report_path, screenshot=True, config_path=None, whitelister=None):
+    def __init__(self, config, json_report_path, screenshot=True, whitelister=None):
         # Run the super init to inherit attributes and load the config.
-        super().__init__(json_report_path, config_path=config_path)
+        super().__init__(config, json_report_path, whitelister=whitelister)
 
-        self.logger = logging.getLogger()
-        
-        # Read some items the config file.
-        self.base_url = self.config["VxstreamParser"]["base_url"]
-        self.sandbox_display_name = self.config["VxstreamParser"]["sandbox_display_name"]
-
-        self.report_directory = os.path.dirname(json_report_path)
-        
-        # Fail if we can't parse the MD5. This is used as a sanity check when
-        # figuring out which of the sandbox parsers you should use on your JSON.
-        self.md5 = self.parse(self.report, "analysis", "general", "digests", "md5")
-        if not self.md5:
-            raise ValueError("Unable to parse VxStream MD5 from: " + str(json_report_path))
-        self.logger.debug("Parsing VxStream sample " + self.md5)
-        
-        # Parse some basic info directly from the report.
-        self.filename = self.parse(self.report, "analysis", "general", "sample")
-        self.sha1 = self.parse(self.report, "analysis", "general", "digests", "sha1")
-        self.sha256 = self.parse(self.report, "analysis", "general", "digests", "sha256")
-        self.sha512 = self.parse(self.report, "analysis", "general", "digests", "sha512")
-        self.sample_id = str(self.parse(self.report, "analysis", "general", "controller", "environmentid"))
-        self.sandbox_vm_name = self.parse(self.report, "analysis", "general", "controller", "client_name")
-        
-        # The rest of the info requires a bit more parsing.
-        self.sandbox_url = self.parse_sandbox_url()
-        if screenshot:
-            self.screenshot_path = self.download_screenshot()
-        self.contacted_hosts = self.parse_contacted_hosts()
-        self.dropped_files = self.parse_dropped_files()
-        self.http_requests = self.parse_http_requests()
-        self.dns_requests = self.parse_dns_requests()
-        
-        # Fix the HTTP requests. VxStream seems to like to say the HTTP request
-        # was made using the IP address, but if there is a matching DNS request
-        # for this IP, swap in the domain name instead.
-        for http_request in self.http_requests:
-            for dns_request in self.dns_requests:
-                if http_request.host == dns_request.answer:
-                    http_request.host = dns_request.request
-        
-        self.process_tree = self.parse_process_tree()
-        self.process_tree_urls = self.parse_process_tree_urls()
-        self.memory_urls = self.parse_memory_urls()
-        self.mutexes = self.parse_mutexes()
-        self.resolved_apis = self.parse_resolved_apis()
-        self.strings = self.parse_strings()
-        self.strings_urls = self.parse_strings_urls()
-        self.all_urls = self.get_all_urls()
-        
-        # Extract the IOCs.
-        self.extract_indicators()
-        
-        # Get rid of the JSON report to save space.
-        self.report = None
+        # Try and load this report from cache.
+        if not self.load_from_cache():
+            # Read some items the config file.
+            self.base_url = self.config["VxstreamParser"]["base_url"]
+            self.sandbox_display_name = self.config["VxstreamParser"]["sandbox_display_name"]
+    
+            self.report_directory = os.path.dirname(json_report_path)
+            
+            # Fail if we can't parse the MD5. This is used as a sanity check when
+            # figuring out which of the sandbox parsers you should use on your JSON.
+            self.md5 = self.parse(self.report, "analysis", "general", "digests", "md5")
+            if not self.md5:
+                self.logger.critical("Unable to parse VxStream MD5 from: " + str(json_report_path))
+                return None
+                
+            self.logger.debug("Parsing VxStream sample " + self.md5)
+            
+            # Parse some basic info directly from the report.
+            self.filename = self.parse(self.report, "analysis", "general", "sample")
+            self.sha1 = self.parse(self.report, "analysis", "general", "digests", "sha1")
+            self.sha256 = self.parse(self.report, "analysis", "general", "digests", "sha256")
+            self.sha512 = self.parse(self.report, "analysis", "general", "digests", "sha512")
+            self.sample_id = str(self.parse(self.report, "analysis", "general", "controller", "environmentid"))
+            self.sandbox_vm_name = self.parse(self.report, "analysis", "general", "controller", "client_name")
+            
+            # The rest of the info requires a bit more parsing.
+            self.sandbox_url = self.parse_sandbox_url()
+            if screenshot:
+                self.screenshot_path = self.download_screenshot()
+            self.contacted_hosts = self.parse_contacted_hosts()
+            self.dropped_files = self.parse_dropped_files()
+            self.http_requests = self.parse_http_requests()
+            self.dns_requests = self.parse_dns_requests()
+            
+            # Fix the HTTP requests. VxStream seems to like to say the HTTP request
+            # was made using the IP address, but if there is a matching DNS request
+            # for this IP, swap in the domain name instead.
+            for http_request in self.http_requests:
+                for dns_request in self.dns_requests:
+                    if http_request.host == dns_request.answer:
+                        http_request.host = dns_request.request
+            
+            self.process_tree = self.parse_process_tree()
+            self.process_tree_urls = self.parse_process_tree_urls()
+            self.memory_urls = self.parse_memory_urls()
+            self.mutexes = self.parse_mutexes()
+            self.resolved_apis = self.parse_resolved_apis()
+            self.strings = self.parse_strings()
+            self.strings_urls = self.parse_strings_urls()
+            self.all_urls = self.get_all_urls()
+            
+            # Extract the IOCs.
+            self.extract_indicators()
+            
+            # Get rid of the JSON report to save space.
+            self.report = None
+    
+            # Cache the report.
+            self.save_to_cache()
 
     def __getstate__(self):
         d = dict(self.__dict__)

@@ -2,57 +2,66 @@ import os
 import sys
 import requests
 import logging
-import configparser
+import sys
 
-from integralutils.BaseSandboxParser import *
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
+
+from BaseSandboxParser import *
 
 class WildfireParser(BaseSandboxParser):          
-    def __init__(self, json_report_path, config_path=None, whitelister=None):
+    def __init__(self, config, json_report_path, whitelister=None):
         # Run the super init to inherit attributes and load the config.
-        super().__init__(json_report_path, config_path=config_path)
+        super().__init__(config, json_report_path, whitelister=whitelister)
 
-        self.logger = logging.getLogger()
-
-        self.report_directory = os.path.dirname(json_report_path)
-        
-        # Read some items the config file.
-        self.sandbox_display_name = self.config["WildfireParser"]["sandbox_display_name"]
-        
-        # Fail if we can't parse the MD5. This is used as a sanity check when
-        # figuring out which of the sandbox parsers you should use on your JSON.
-        self.md5 = self.parse(self.report, "wildfire", "file_info", "md5")
-        if not self.md5:
-            raise ValueError("Unable to parse Wildfire MD5 from: " + str(json_report_path))
-        self.logger.debug("Parsing Wildfire sample " + self.md5)
-        
-        # Most Wildfire values depend on this.
-        self.reports_json = self.parse(self.report, "wildfire", "task_info", "report")
-        
-        # In case there was only a single report, make it a list anyway.
-        if isinstance(self.reports_json, dict):
-            self.reports_json = [self.reports_json]
-        
-        # Parse some basic info directly from the report.
-        self.filename = "sample"
-        self.sha1 = self.parse(self.report, "wildfire", "file_info", "sha1")
-        self.sha256 = self.parse(self.report, "wildfire", "file_info", "sha256")
-        
-        # The rest of the info requires a bit more parsing.
-        self.sandbox_url = self.parse_sandbox_url()
-        self.contacted_hosts = self.parse_contacted_hosts()
-        self.dropped_files = self.parse_dropped_files()
-        self.http_requests = self.parse_http_requests()
-        self.dns_requests = self.parse_dns_requests()
-        self.process_tree = self.parse_process_tree()
-        self.process_tree_urls = self.parse_process_tree_urls()
-        self.mutexes = self.parse_mutexes()
-        self.all_urls = self.get_all_urls()
-        
-        # Extract the IOCs.
-        self.extract_indicators()
-        
-        # Get rid of the JSON report to save space.
-        self.report = None
+        # Try and load this report from cache.
+        if not self.load_from_cache():
+            # Read some items the config file.
+            self.sandbox_display_name = self.config["WildfireParser"]["sandbox_display_name"]
+            
+            # Fail if we can't parse the MD5. This is used as a sanity check when
+            # figuring out which of the sandbox parsers you should use on your JSON.
+            self.md5 = self.parse(self.report, "wildfire", "file_info", "md5")
+            if not self.md5:
+                self.logger.critical("Unable to parse Wildfire MD5 from: " + str(json_report_path))
+                return None
+                
+            self.logger.debug("Parsing Wildfire sample " + self.md5)
+            
+            # Most Wildfire values depend on this.
+            self.reports_json = self.parse(self.report, "wildfire", "task_info", "report")
+            
+            # In case there was only a single report, make it a list anyway.
+            if isinstance(self.reports_json, dict):
+                self.reports_json = [self.reports_json]
+            
+            # Parse some basic info directly from the report.
+            self.filename = "sample"
+            self.sha1 = self.parse(self.report, "wildfire", "file_info", "sha1")
+            self.sha256 = self.parse(self.report, "wildfire", "file_info", "sha256")
+            
+            # The rest of the info requires a bit more parsing.
+            self.sandbox_url = self.parse_sandbox_url()
+            self.contacted_hosts = self.parse_contacted_hosts()
+            self.dropped_files = self.parse_dropped_files()
+            self.http_requests = self.parse_http_requests()
+            self.dns_requests = self.parse_dns_requests()
+            self.process_tree = self.parse_process_tree()
+            self.process_tree_urls = self.parse_process_tree_urls()
+            self.mutexes = self.parse_mutexes()
+            self.all_urls = self.get_all_urls()
+            
+            # Extract the IOCs.
+            self.extract_indicators()
+            
+            # Get rid of the JSON report to save space.
+            self.report = None
+    
+            # Cache the report.
+            self.save_to_cache()
 
     def __getstate__(self):
         d = dict(self.__dict__)

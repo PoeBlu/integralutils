@@ -1,26 +1,40 @@
+from bs4 import BeautifulSoup
+import json
+import logging
 import os
 import re
-import json
 import requests
-import logging
-from bs4 import BeautifulSoup
+import sys
 
-from integralutils.ConfluenceConnector import *
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
+
+from ConfluenceConnector import *
 
 class BaseConfluencePage(ConfluenceConnector):
-    def __init__(self, page_title, parent_title=None, config_path=None):
+    def __init__(self, config, page_title, parent_title=None, whitelister=None):
         # Run the super init to load the config.
-        super().__init__(config_path=config_path)
-
-        self.logger = logging.getLogger()
-
-        self.config_path = config_path
+        super().__init__(config=config, whitelister=whitelister)
 
         self.page_title = page_title
         self.parent_title = parent_title
         
         # Try to cache the page.
         self.cache_page()
+        
+    # Override __get/setstate__ in case someone
+    # wants to pickle an object of this class.
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        if "logger" in d:
+            del d["logger"]
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     #####################
     ##                 ##
@@ -142,7 +156,7 @@ class BaseConfluencePage(ConfluenceConnector):
             if section:
                 return section
             else:
-                raise ValueError("Did not find section '" + section_id + "' on page '" + self.page_title + "'.")
+                self.logger.critical("Did not find section '" + section_id + "' on page '" + self.page_title + "'.")
 
     def update_page(self, page_text):
         if self.page_exists():
@@ -167,12 +181,10 @@ class BaseConfluencePage(ConfluenceConnector):
             if old_section_id:
                 # Get the current version of the section.
                 section = self.get_section(old_section_id)
-                self.logger.debug("Updating Confluence section: " + old_section_id)
             elif old_section_soup:
                 if isinstance(old_section_soup, str):
                     old_section_soup = self.soupify(old_section_soup)
                 section = old_section_soup
-                self.logger.debug("Updating cached-only Confluence section.")
             
             # Update the section's body.
             section.find("ac:rich-text-body").replace_with(new_section)
@@ -200,7 +212,7 @@ class BaseConfluencePage(ConfluenceConnector):
         if not self.page_exists():
             if self.parent_title:
                 # If we were given a parent title, create an object from it.
-                parent_page = BaseConfluencePage(self.parent_title, config_path=self.config_path)
+                parent_page = BaseConfluencePage(self.config, self.parent_title)
                 
                 if parent_page.page_exists():
                     parent_id = parent_page.get_page_id()
@@ -218,7 +230,6 @@ class BaseConfluencePage(ConfluenceConnector):
                     self.cache_page()
             except ValueError:
                 self.logger.exception(repr(page_text))
-                raise
 
     def commit_page(self):
         if not self.page_exists() and self.soup:
@@ -239,7 +250,7 @@ class BaseConfluencePage(ConfluenceConnector):
 
         # If the call was successful, cache the page.
         if self._validate_request(r, error_msg="Error with commit_page Confluence API query."):
-            self.logger.debug("Commiting changes to Confluence page: " + self.page_title)
+            self.logger.info("Commiting changes to Confluence page: " + self.page_title)
             self.cache_page()
         else:
             self.logger.error("Error commiting changes to Confluence page: " + self.page_title)
@@ -254,7 +265,7 @@ class BaseConfluencePage(ConfluenceConnector):
                 attachment = {"file": open(file_path, "rb")}
                 r = requests.post(self.api_url + "/" + page_id + "/child/attachment", auth=(self.username, self.password), files=attachment, headers=({'X-Atlassian-Token':'nocheck'}), verify=self.requests_verify)
                 if self._validate_request(r, error_msg="Unable to upload attachment '" + file_path + "'."):
-                    self.logger.debug("Attached " + os.path.basename(file_path) + " to Confluence page " + self.page_title)
+                    self.logger.info("Attached " + os.path.basename(file_path) + " to Confluence page " + self.page_title)
                     return True
                 else:
                     return False
@@ -267,5 +278,5 @@ class BaseConfluencePage(ConfluenceConnector):
             data = [{"prefix": "global", "name": label}]
             r = requests.post(self.api_url + "/" + page_id + "/label", auth=(self.username, self.password), data=json.dumps(data), headers=({'Content-Type':'application/json'}), verify=self.requests_verify)
             if self._validate_request(r, error_msg="Error with add_page_label Confluence API query."):
-                self.logger.debug("Added label '" + label + "' to Confluence page " + self.page_title)
+                self.logger.info("Added label '" + label + "' to Confluence page " + self.page_title)
                 return True

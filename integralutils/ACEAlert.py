@@ -1,37 +1,29 @@
 import json
 import logging
+import os
 import sys
 
-from integralutils.BaseAlert import *
-#from integralutils import Whitelist
+# Make sure the current directory is in the
+# path so that we can run this from anywhere.
+this_dir = os.path.dirname(__file__)
+if this_dir not in sys.path:
+    sys.path.insert(0, this_dir)
+
+from BaseAlert import *
+import EmailParser
+import Indicator
 
 class ACEAlert(BaseAlert):
-    def __init__(self, alert_path, config_path=None, whitelister=None): 
+    def __init__(self, config, alert_path, whitelister=None):
         # Run the super init to inherit attributes and load the config.
-        super().__init__(config_path=config_path)
-        
-        # Initiate logging.
-        self.logger = logging.getLogger()
-
-        # Make sure we were given a valid config.
-        #if isinstance(config, configparser.ConfigParser):
-        #    self.config = config
-        #else:
-        #    self.logger.critical("You must pass in a valid ConfigParser config.")
-        #    sys.exit(2)
-
-        # Check if we got a Whitelist object.
-        if isinstance(whitelister, Whitelist.Whitelist):
-            self.whitelister = whitelister
-        else:
-            self.whitelister = None
+        super().__init__(config=config, whitelister=whitelister)
 
         alert_json_path = os.path.join(alert_path, "data.json")
         alert_json_path = os.path.normpath(alert_json_path)
         
+        self.logger.info("Parsing ACE alert: " + alert_json_path)
         with open(alert_json_path) as a:
             self.json = json.load(a)
-            self.logger.debug("Parsing ACE alert: " + alert_json_path)
             
         self.iocs = []
         self.source = ""
@@ -63,19 +55,18 @@ class ACEAlert(BaseAlert):
                 mime = self.get_file_mimetype(os.path.join(self.path, file))
                 if "rfc822" in mime:
                     try:
-                        self.logger.debug("Parsing e-mail: " + file_path)
-                        email = EmailParser.EmailParser(smtp_path=file_path, whitelister=self.whitelister)
+                        email = EmailParser.EmailParser(self.config, smtp_path=file_path, whitelister=self.whitelister)
                         email.reference = self.alert_url
                         potential_emails.append(email)
                     except Exception:
+                        # Log and skip this e-mail if it couldn't be parsed.
                         self.logger.exception("Error parsing e-mail: " + file_path)
-                        raise
                     
         # Since ACE makes .header files that also appear as rfc822 files, pick the right one.
         if len(potential_emails) == 1:
             self.email = potential_emails[0]
-            
         elif len(potential_emails) > 1:
+            # Probably should have a more robust method of picking e-mails.
             self.email = next(email for email in potential_emails if email.body or email.html)
         
         #####################
@@ -110,7 +101,7 @@ class ACEAlert(BaseAlert):
         ##        ##
         ############
         # Save whatever URLs ACE was able to automatically extract.
-        self.urls = set()
+        self.urls = []
         
         url_files = self.get_all_analysis_paths("saq.modules.file_analysis:URLExtractionAnalysis")
         for file in url_files:
@@ -119,18 +110,13 @@ class ACEAlert(BaseAlert):
                 for url in json_data:
                     if url.endswith("/"):
                         url = url[:-1]
-                    self.urls.add(url)
-                    self.logger.debug("Added ACE extracted URL: " + url)
-                    
-        # Try and remove any URLs that look like partial versions of other URLs.
-        unique_urls = set()
-        for url in self.urls:
-            if not any(other_url.startswith(url) and other_url != url for other_url in self.urls):
-                unique_urls.add(url)
-        self.urls = sorted(list(unique_urls))
+                    if not any(other_url.startswith(url) and other_url != url for other_url in self.urls):
+                        self.urls.append(url)
+                    else:
+                        self.logger.debug("Skipping duplicate/partial ACE extracted URL: " + url)
                     
         # Make Indicators for any URLs that ACE extracted.
-        indicator_list = Indicator.generate_url_indicators(self.urls, whitelister=self.whitelister)
+        indicator_list = Indicator.generate_url_indicators(self.urls)
         
         # Add some additional tags and add them to our main IOC list.
         for ind in indicator_list:
@@ -142,7 +128,7 @@ class ACEAlert(BaseAlert):
         ##  FIND SANDBOX REPORT  ##
         ##                       ##
         ###########################
-        valid_sandbox_paths = ["cuckoo", "vxstream", "wildfire"]
+        valid_sandbox_paths = self.config["ACEAlert"]["valid_sandbox_paths"].split(",")
 
         # Walk the entire alert directory to find any possible sandbox reports.
         for root, dirs, files in os.walk(self.path):
@@ -152,12 +138,14 @@ class ACEAlert(BaseAlert):
                     # Make sure the file ends with .json.
                     if file.endswith(".json"):
                         # Filter out the "network_" and "processtree_" WildFire JSON.
+                        # This is currently a hack for how we dump the WildFire JSON.
                         if not root.endswith("dropped") and "network_" not in file and "processtree_" not in file:
                             # At this point, assume this is a sandbox report. Try to add it.
                             sandbox_json_path = os.path.join(root, file)
                             self.add_sandbox(sandbox_json_path)
 
-    # Remove the logger object in case someone pickles this class.
+    # Override __get/setstate__ in case someone
+    # wants to pickle an object of this class.
     def __getstate__(self):
         d = dict(self.__dict__)
         if "logger" in d:
