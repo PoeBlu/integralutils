@@ -78,6 +78,10 @@ class SpenderCuckooParser(BaseSandboxParser):
         d = dict(self.__dict__)
         if "logger" in d:
             del d["logger"]
+        if "strings" in d:
+            del d["strings"]
+        if "whitelister" in d:
+            del d["whitelister"]
         return d
 
     def __setstate__(self, d):
