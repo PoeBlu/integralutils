@@ -612,28 +612,27 @@ class BaseSandboxParser():
         try:
             for file in dropped_files:
                 if isinstance(file, DroppedFile):
-                    if not self.whitelister.is_file_name_whitelisted(file.filename):
-                        # If there are file name restrictions, check if this file matches.
-                        if dropped_file_names:
-                            if any(name in file.filename for name in dropped_file_names):
-                                if file.md5:
-                                    if not file in self._dropped_files:
-                                        self._dropped_files.append(file)
-                                else:
-                                    # Append the dropped file if there is not already one with the same name.
-                                    if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
-                                        self._dropped_files.append(file)
+                    # If there are file name restrictions, check if this file matches.
+                    if dropped_file_names:
+                        if any(name in file.filename for name in dropped_file_names):
+                            if file.md5:
+                                if not file in self._dropped_files:
+                                    self._dropped_files.append(file)
+                            else:
+                                # Append the dropped file if there is not already one with the same name.
+                                if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
+                                    self._dropped_files.append(file)
 
-                        # If there are any file type restrictions, check if this file matches.
-                        if dropped_file_types:
-                            if any(t in file.type for t in dropped_file_types):
-                                if file.md5:
-                                    if not file in self._dropped_files:
-                                        self._dropped_files.append(file)
-                                else:
-                                    # Append the dropped file if there is not already one with the same name.
-                                    if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
-                                        self._dropped_files.append(file)
+                    # If there are any file type restrictions, check if this file matches.
+                    if dropped_file_types:
+                        if any(t in file.type for t in dropped_file_types):
+                            if file.md5:
+                                if not file in self._dropped_files:
+                                    self._dropped_files.append(file)
+                            else:
+                                # Append the dropped file if there is not already one with the same name.
+                                if not any(file.filename == unique_dropped_file.filename for unique_dropped_file in self._dropped_files):
+                                    self._dropped_files.append(file)
 
         except TypeError:
             pass
