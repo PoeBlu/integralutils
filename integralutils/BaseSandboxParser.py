@@ -226,9 +226,20 @@ class BaseSandboxParser():
             except TypeError:
                 return error
         return json_dict
+
+    def parse_json_urls(self):
+        self.logger.debug("Looking for URLs in the JSON report")
+        json_urls = []
+
+        if self.report:
+            json_urls = RegexHelpers.find_urls(str(self.report))
+
+        json_urls = list(set(json_urls))
+        return json_urls
     
     def get_all_urls(self):
         all_urls = []
+        all_urls += list(self.json_urls)
         all_urls += list(self.process_tree_urls)
         all_urls += list(self.memory_urls)
         all_urls += list(self.strings_urls)

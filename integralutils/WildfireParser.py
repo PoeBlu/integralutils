@@ -52,6 +52,7 @@ class WildfireParser(BaseSandboxParser):
             self.process_tree = self.parse_process_tree()
             self.process_tree_urls = self.parse_process_tree_urls()
             self.mutexes = self.parse_mutexes()
+            self.json_urls = self.parse_json_urls()
             self.all_urls = self.get_all_urls()
             
             # Extract the IOCs.
