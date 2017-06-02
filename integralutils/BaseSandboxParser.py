@@ -926,10 +926,10 @@ def dedup_reports(config, report_list, whitelister=None):
                 if whitelister:
                     if not whitelister.is_file_path_whitelisted(file.path):
                         if not whitelister.is_file_name_whitelisted(file.filename):
-                            self.logger.debug("Adding non-whitelisted dropped file: " + file.filename + " " + file.md5)
+                            logger.debug("Adding non-whitelisted dropped file: " + file.filename + " " + file.md5)
                             dedup_report.dropped_files.append(file)
                 else:
-                    self.logger.debug("Adding dropped file: " + file.filename + " " + file.md5)
+                    logger.debug("Adding dropped file: " + file.filename + " " + file.md5)
                     dedup_report.dropped_files.append(file)
 
         # Dedup the HTTP requests.
