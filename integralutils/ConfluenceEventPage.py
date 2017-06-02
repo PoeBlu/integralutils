@@ -633,6 +633,7 @@ class ConfluenceEventPage(BaseConfluencePage):
                     # Set up the table body rows.
                     tbody = self.new_tag("tbody", parent=table)
                     for file in dedup_report.dropped_files:
+                        self.logger.debug("Adding row for dropped file: " + file.filename + " " + file.md5)
                         tr = self.new_tag("tr", parent=tbody)
 
                         td = self.new_tag("td", parent=tr)
