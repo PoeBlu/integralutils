@@ -931,6 +931,8 @@ def dedup_reports(config, report_list, whitelister=None):
                 else:
                     logger.debug("Adding dropped file: " + file.filename + " " + file.md5)
                     dedup_report.dropped_files.append(file)
+            else:
+                logger.debug("Dropped file already in dedup list: " + file.filename + " " + file.md5)
 
         # Dedup the HTTP requests.
         for request in report.http_requests:
