@@ -55,12 +55,15 @@ class ConfluenceEventPage(BaseConfluencePage):
     def listify_section_table(self, section_id, horizontal_header=True):
         section = self.get_section(section_id)
         table_list = []
-        
-        if horizontal_header:
-            table = section.find("table")
-            for row in table.findAll("tr"):
-                row_list = [str(tag.string) for tag in row]
-                table_list.append(row_list)
+       
+        try: 
+            if horizontal_header:
+                table = section.find("table")
+                for row in table.findAll("tr"):
+                    row_list = [str(tag.string) for tag in row]
+                    table_list.append(row_list)
+        except AttributeError:
+            pass
 
         return table_list
 
