@@ -206,6 +206,7 @@ class WildfireParser(BaseSandboxParser):
                             except KeyError: pass
                         
                             dropped_files.add(d)
+                            self.logger.debug("Adding dropped file: " + d.filename)
                     except KeyError:
                         pass
                     except TypeError:

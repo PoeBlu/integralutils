@@ -263,7 +263,10 @@ class SpenderCuckooParser(BaseSandboxParser):
             
                 # Only add the file if its filename was succesfully parsed.
                 if f.filename:
+                    self.logger.debug("Adding dropped file: " + f.filename)
                     dropped_files.append(f)
+                else:
+                    self.logger.error("Unable to parse dropped filename: " + f.md5)
 
         return dropped_files
     
