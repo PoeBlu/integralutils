@@ -61,7 +61,7 @@ class SpenderCuckooParser(BaseSandboxParser):
             self.started_services = self.parse_started_services()
             self.strings = self.parse_strings()
             self.strings_urls = self.parse_strings_urls()
-            self.json_urls = self.parse_json_urls()
+            #self.json_urls = self.parse_json_urls()
             self.all_urls = self.get_all_urls()
             
             # Extract the IOCs.

@@ -239,7 +239,7 @@ class BaseSandboxParser():
     
     def get_all_urls(self):
         all_urls = []
-        all_urls += list(self.json_urls)
+        #all_urls += list(self.json_urls)
         all_urls += list(self.process_tree_urls)
         all_urls += list(self.memory_urls)
         all_urls += list(self.strings_urls)
