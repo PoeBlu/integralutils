@@ -928,6 +928,10 @@ def dedup_reports(config, report_list, whitelister=None):
                         if not whitelister.is_file_name_whitelisted(file.filename):
                             logger.debug("Adding non-whitelisted dropped file: " + file.filename + " " + file.md5)
                             dedup_report.dropped_files.append(file)
+                        else:
+                            logger.debug("Skipping whitelisted dropped file name: " + file.filename)
+                    else:
+                        logger.debug("Skipping whitelisted dropped file path: " + file.path)
                 else:
                     logger.debug("Adding dropped file: " + file.filename + " " + file.md5)
                     dedup_report.dropped_files.append(file)
@@ -1239,13 +1243,40 @@ class DroppedFile():
     
     def __eq__(self, other):
         if isinstance(other, DroppedFile):
-            if self.md5 and other.md5:
-                return self.md5 == other.md5
-            else:
-                return self.filename == other.filename
+            return self.md5 == other.md5
+            #if self.md5 and other.md5:
+            #    return self.md5 == other.md5
+            #else:
+            #    if self.filename == other.filename:
+            #        self.merge_dropped_file(other)
+            #
+            #    return self.filename == other.filename
         else:
             return False
-        
+
+    def merge_dropped_file(self, other):
+        if isinstance(other, DroppedFile):
+            if not self.filename:
+                self.filename = other.filename
+            if not self.path:
+                self.path = other.path
+            if not self.os_path:
+                self.os_path = other.os_path
+            if not self.size:
+                self.size = other.size
+            if not self.type:
+                self.type = other.type
+            if not self.md5:
+                self.md5 = other.md5
+            if not self.sha1:
+                self.sha1 = other.sha1
+            if not self.sha256:
+                self.sha256 = other.sha256
+            if not self.sha512:
+                self.sha512 = other.sha512
+            if not self.ssdeep:
+                self.ssdeep = other.ssdeep
+
     @property
     def filename(self):
         return self.__filename
