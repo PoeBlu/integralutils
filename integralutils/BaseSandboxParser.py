@@ -292,7 +292,7 @@ class BaseSandboxParser():
                     if host.protocol and host.port:
                         ind.add_tags(host.protocol + " " + host.port)
                     elif host.protocol and not host.port:
-                        ind.add_tag(host.protocol)
+                        ind.add_tags(host.protocol)
                     self.iocs.append(ind)
                 except ValueError:
                     pass
