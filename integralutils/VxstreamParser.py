@@ -324,7 +324,7 @@ class VxstreamParser(BaseSandboxParser):
                 process_tree_json = [process_tree_json]
                 
             for process in process_tree_json:
-                command = process["name"] + " " + process["commandline"]
+                command = str(process["name"]) + " " + str(process["commandline"])
                 pid = process["pid"]
                 parent_pid = process["parentpid"]
                 new_process = Process(command, pid, parent_pid)
