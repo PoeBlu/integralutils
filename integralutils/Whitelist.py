@@ -300,23 +300,29 @@ class Whitelist():
         
     def is_mutex_whitelisted(self, mutex):
         if hasattr(self, "Whitelists_mutex"):
-            for regex in self.Whitelists_mutex:
-                pattern = re.compile(regex)
-                if pattern.search(mutex):
-                    return True
+            if mutex in self.Whitelists_mutex:
+                return True
             else:
-                return False
+                for regex in self.Whitelists_mutex:
+                    pattern = re.compile(regex)
+                    if pattern.search(mutex):
+                        return True
+                else:
+                    return False
         else:
             return False
 
     def is_mutex_benign(self, mutex):
         if hasattr(self, "Benignlists_mutex"):
-            for regex in self.Benignlists_mutex:
-                pattern = re.compile(regex)
-                if pattern.search(mutex):
-                    return True
+            if mutex in self.Benignlists_mutex:
+                return True
             else:
-                return False
+                for regex in self.Benignlists_mutex:
+                    pattern = re.compile(regex)
+                    if pattern.search(mutex):
+                        return True
+                else:
+                    return False
         else:
             return False
         
