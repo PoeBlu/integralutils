@@ -12,6 +12,7 @@ _email_address = re.compile(r'[a-zA-Z0-9._%+\-"]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9_-]{
 _ip = re.compile(r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)')
 _domain = re.compile(r'(((?=[a-zA-Z0-9-]{1,63}\.)[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,63})')
 _url = re.compile(r'(((?:(?:https?|ftp)://)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_:\?]*)#?(?:[\.\!\/\w:%\?&;=-]*))?(?<!=))')
+_pdf_url = re.compile(r'Type\/Action\/S\/URI\/URI\((.*?)\)')
 _bitly_url = re.compile(r'https?://bit.ly/[a-zA-Z0-9]{7}')
 _md5 = re.compile(r'^[a-fA-F0-9]{32}$')
 _sha1 = re.compile(r'^[a-fA-F0-9]{40}$')
@@ -61,7 +62,14 @@ def find_urls(value):
         value = bytes(value, "ascii", errors="ignore").decode("ascii", errors="ignore")
 
     urls = _url.findall(value)
-    unescaped_urls = [html.unescape(url[0]) for url in urls]
+    temp = _pdf_url.findall(value)
+    pdf_urls = []
+    for url in temp:
+        if not url.lower().startswith("http://") and not url.lower().startswith("https://"):
+            url = "http://" + url
+        pdf_urls.append(url)
+    urls += pdf_urls
+    unescaped_urls = [url if isinstance(url, str) else html.unescape(url[0]) for url in urls]
 
     # Try and remove any URLs that look like partial versions of other URLs.
     unique_urls = unescaped_urls[:]
