@@ -185,7 +185,7 @@ def is_url(value):
 
 def is_email_address(value):
     try:
-        if _email_address.match(value)
+        if _email_address.match(value):
             return True
         else:
             return False
