@@ -182,6 +182,15 @@ def is_url(value):
             return False
     except TypeError:
         return False
+
+def is_email_address(value):
+    try:
+        if _email_address.match(value)
+            return True
+        else:
+            return False
+    except TypeError:
+        return False
     
 def is_sha1(value):
     try:

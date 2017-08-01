@@ -205,6 +205,67 @@ class EmailParser():
                 pass
         except IndexError:
             self.replyto = ""
+
+        # Make an Indicator for the X-Sender-Id address.
+        try:
+            self.x_sender_id = self._get_address_list("X-Sender-Id")[0][1]
+            try:
+                if RegexHelpers.is_email_address(self.x_sender_id):
+                    ind = Indicator.Indicator(self.x_sender_id, "Email - Address")
+                    ind.add_tags(["phish", "x_sender_id"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    self.iocs.append(ind)
+            except ValueError:
+                pass
+        except IndexError:
+            self.x_sender_id = ""
+
+        # Make an Indicator for the X-Auth-ID address.
+        try:
+            self.x_auth_id = self._get_address_list("X-Auth-ID")[0][1]
+            try:
+                if RegexHelpers.is_email_address(self.x_auth_id):
+                    ind = Indicator.Indicator(self.x_auth_id, "Email - Address")
+                    ind.add_tags(["phish", "x_auth_id"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    self.iocs.append(ind)
+            except ValueError:
+                pass
+        except IndexError:
+            self.x_auth_id = ""
+
+        # Make an Indicator for the Return-Path address.
+        try:
+            self.return_path = self._get_address_list("return_path")[0][1]
+            try:
+                if RegexHelpers.is_email_address(self.return_path):
+                    ind = Indicator.Indicator(self.return_path, "Email - Address")
+                    ind.add_tags(["phish", "return_path"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    self.iocs.append(ind)
+            except ValueError:
+                pass
+        except IndexError:
+            self.return_path = ""
+
+        # Make an Indicator for the X-MS-Exchange-Organization-OriginalEnvelopeRecipients address.
+        try:
+            self.env_recipient = self._get_address_list("X-MS-Exchange-Organization-OriginalEnvelopeRecipients")[0][1]
+            try:
+                if RegexHelpers.is_email_address(self.env_recipient):
+                    ind = Indicator.Indicator(self.env_recipient, "Email - Address")
+                    ind.add_tags(["phish", "env_recipient"])
+                    if self.from_address:
+                        ind.add_relationships(self.from_address)
+                    ind.make_benign() 
+                    self.iocs.append(ind)
+            except ValueError:
+                pass
+        except IndexError:
+            self.env_recipient = ""
             
         # Make an Indicator for the subject.
         try:
