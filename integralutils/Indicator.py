@@ -127,11 +127,18 @@ class Indicator:
             else:
                 for regex in benignlists[self.type]:
                     # Only continue if it actually looks like a regex.
-                    if any(char in regex for char in regex_chars):
+                    #if any(char in regex for char in regex_chars):
+                    #    pattern = re.compile(regex)
+                    #    if pattern.search(self.indicator):
+                    #        self.make_benign()
+                    #        return True
+                    try:
                         pattern = re.compile(regex)
                         if pattern.search(self.indicator):
                             self.make_benign()
                             return True
+                    except:
+                        pass
 
         return False
 
@@ -150,12 +157,20 @@ class Indicator:
             else:
                 for regex in whitelists[self.type]:
                     # Only continue if it actually looks like a regex.
-                    if any(char in regex for char in regex_chars):
+                    #if any(char in regex for char in regex_chars):
+                    #    pattern = re.compile(regex)
+                        # If the regex matched, add the indicator to the
+                        # bad list, and remove it from the good list.
+                    #    if pattern.search(self.indicator):
+                    #        return True
+                    try:
                         pattern = re.compile(regex)
                         # If the regex matched, add the indicator to the
                         # bad list, and remove it from the good list.
                         if pattern.search(self.indicator):
                             return True
+                    except:
+                        pass
 
         return False
 
