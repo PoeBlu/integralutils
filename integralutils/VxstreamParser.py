@@ -64,7 +64,8 @@ class VxstreamParser(BaseSandboxParser):
             self.mutexes = self.parse_mutexes()
             self.resolved_apis = self.parse_resolved_apis()
             self.strings = self.parse_strings()
-            self.strings_urls = self.parse_strings_urls()
+            #self.strings_urls = self.parse_strings_urls()
+            self.strings_urls = []
             #self.json_urls = self.parse_json_urls()
             self.all_urls = self.get_all_urls()
             
