@@ -2,6 +2,9 @@ import os
 import requests
 import logging
 import sys
+import zipfile
+import tempfile
+import shutil
 from urllib.parse import urlparse
 
 # Make sure the current directory is in the
@@ -93,69 +96,62 @@ class CuckooParser(BaseSandboxParser):
     
     def download_screenshot(self):
         if self.screenshot_repository:
+            screenshot_zip_path = os.path.join(self.screenshot_repository, self.md5 + "_cuckoo.zip")
             screenshot_path = os.path.join(self.screenshot_repository, self.md5 + "_cuckoo.jpg")
 
+            # If the screenshot .jpg hasn't already been cached...
             if not os.path.exists(screenshot_path):
-                url = self.parse_screenshot_url()
 
-                if url:
-                    try:
-                        request = requests.get(url, allow_redirects=True, verify=self.requests_verify)
-                        self.logger.debug("Downloading screenshot " + url)
+                # If the screenshot .zip hasn't already been cached...
+                if not os.path.exists(screenshot_zip_path):
 
-                        if request.status_code == 200:
-                            with open(screenshot_path, "wb") as url_file:
-                                url_file.write(request.content)
+                    # This URL will download the .zip of all the screenshots.
+                    url = self.parse_screenshot_url()
+    
+                    if url:
+                        try:
+                            request = requests.get(url, allow_redirects=True, verify=self.requests_verify)
+                            self.logger.debug("Downloading screenshots .zip " + url)
+    
+                            if request.status_code == 200:
+                                with open(screenshot_zip_path, "wb") as url_file:
+                                    url_file.write(request.content)
+    
+                        except requests.exceptions.ConnectionError:
+                            return None
+                
+                # The .zip is cached, but the screenshot is not. Extract the .zip
+                # to get at the screenshots. Extract them to a temp dir and pick
+                # the "best" screenshot from there to cache.
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    with zipfile.ZipFile(screenshot_zip_path, "r") as zf:
+                        zf.extractall(temp_dir)
+                    
+                    # Our VMs use a plain black Desktop background, so the logic
+                    # is that the largest filesize of the screenshots is going
+                    # to have the most "stuff" on it, so we'll pick that one.
+                    best_screenshot = {"path": "", "size": 0}
+                    for temp_screenshot in os.listdir(temp_dir):
+                        temp_screenshot_path = os.path.join(temp_dir, temp_screenshot)
+                        temp_screenshot_size = int(os.path.getsize(temp_screenshot_path))
+                        if temp_screenshot_size > best_screenshot["size"]:
+                            best_screenshot["path"] = temp_screenshot_path
+                            best_screenshot["size"] = int(temp_screenshot_size)
 
-                            return screenshot_path
-                    except requests.exceptions.ConnectionError:
-                        return None
+                    # If we have a best screenshot, copy it out of the temp
+                    # directory into the screenshot cache.
+                    if best_screenshot["path"]:
+                        self.logger.debug("Copying screenshot from temp dir to cache: {}".format(screenshot_path))
+                        shutil.copy2(best_screenshot["path"], screenshot_path)
+                        return screenshot_path
             else:
                 return screenshot_path
         
         return None
         
     def parse_screenshot_url(self):
-        # The Cuckoo JSON does not tell us how many screenshots are available,
-        # so we must perform a HTTP HEAD request loop until we no longer receive
-        # an image. After the loop is finished, we want to get the URL of the
-        # largest image. Cuckoo uses a plain black background for the sandbox VM,
-        # so the largest image should in theory have something interesting in it.
-    
-        # Start the HTTP HEAD loop with 0001
-        image_int = 1
-        image_number = str(image_int).zfill(4)
-        url = self.base_url + "/file/screenshot/" + str(self.sample_id) + "/" + image_number + "/"
-
-        # Keep a dictionary to store the image URLs and their size.
-        screenshot_dict = {}
-    
-        try:
-            self.logger.debug("Trying to identify best screenshot")
-
-            # Perform the first HTTP HEAD request.
-            req = requests.head(url, allow_redirects=True, verify=self.requests_verify)
-
-            # Loop until we no longer receive an image.
-            while req.headers["content-type"] == "image/jpeg":
-                screenshot_dict[url] = int(req.headers["content-length"])
-                image_int += 1
-                image_number = str(image_int).zfill(4)
-                url = self.base_url + "/file/screenshot/" + str(self.sample_id) + "/" + image_number + "/"
-                req = requests.head(url, allow_redirects=True, verify=self.requests_verify)
-        except requests.exceptions.ConnectionError:
-            return ""
-        
-        # Sort the screenshot URLs by their size.
-        screenshot_sorted = sorted(screenshot_dict, key=lambda k: screenshot_dict[k])
-    
-        if screenshot_sorted:
-            # Set the URL to the last (largest) image.
-            return screenshot_sorted[-1]
-        else:
-            return ""
-            pass
-    
+        return self.base_url + "/api/tasks/screenshots/" + str(self.sample_id)
+   
     def parse_http_requests(self):
         self.logger.debug("Parsing HTTP requests")
 

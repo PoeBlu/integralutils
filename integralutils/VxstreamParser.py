@@ -44,7 +44,16 @@ class VxstreamParser(BaseSandboxParser):
             # The rest of the info requires a bit more parsing.
             self.sandbox_url = self.parse_sandbox_url()
             if screenshot:
-                self.screenshot_path = self.download_screenshot()
+                # Try the "new" method of getting the screenshot first.
+                # This means look for the .png screenshots inside the same
+                # directory as this JSON report since it should be our
+                # convention to use download them from the VxStream API when
+                # we download the JSON report.
+                self.screenshot_path = self.pick_best_screenshot()
+
+                # If the new method failed, fall back to the old slow method.
+                if not self.screenshot_path:
+                    self.screenshot_path = self.download_screenshot()
             self.contacted_hosts = self.parse_contacted_hosts()
             self.dropped_files = self.parse_dropped_files()
             self.http_requests = self.parse_http_requests()
@@ -94,6 +103,25 @@ class VxstreamParser(BaseSandboxParser):
     def parse_sandbox_url(self):
         return self.base_url + "/sample/" + str(self.sha256) + "?environmentId=" + str(self.sample_id)
     
+    def pick_best_screenshot(self):
+        potential_screenshots = [thing for thing in os.listdir(self.report_directory) if thing.startswith("screen_") and thing.endswith(".png")]
+        if potential_screenshots:
+            self.logger.debug("Picking the best screenshot using new method.")
+
+            # Our VxStream VMs use the standard Windows background image, which
+            # is quite large. In most cases, we want the smallest filesize image.
+            best_screenshot = {"path": "", "size": 99999999}
+            for screenshot in potential_screenshots:
+                path = os.path.join(self.report_directory, screenshot)
+                size = int(os.path.getsize(path))
+                if size < best_screenshot["size"]:
+                    best_screenshot["path"] = path
+                    best_screenshot["size"] = size
+
+            # If we picked a best screenshot, return that as the path.
+            if best_screenshot["path"]:
+                return best_screenshot["path"]
+
     def download_screenshot(self):
         if self.screenshot_repository:
             screenshot_path = os.path.join(self.screenshot_repository, self.md5 + "_vxstream.png")
