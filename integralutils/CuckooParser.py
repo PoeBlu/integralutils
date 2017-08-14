@@ -2,6 +2,7 @@ import os
 import requests
 import logging
 import sys
+from urllib.parse import urlparse
 
 # Make sure the current directory is in the
 # path so that we can run this from anywhere.
@@ -164,15 +165,24 @@ class CuckooParser(BaseSandboxParser):
         if http_requests_json:
             for request in http_requests_json:
                 r = HttpRequest()
+
+                try:
+                    full_url = request["path"]
+                    parsed_url = urlparse(full_url)
+                    r.host = parsed_url.netloc
+                    r.port = parsed_url.port
+                    r.uri = parsed_url.path
+                except:
+                    pass
                 
-                try: r.host = request["host"]
-                except KeyError: pass
+                #try: r.host = request["host"]
+                #except KeyError: pass
             
-                try: r.port = request["port"]
-                except KeyError: pass
+                #try: r.port = request["port"]
+                #except KeyError: pass
             
-                try: r.uri = request["path"]
-                except KeyError: pass
+                #try: r.uri = request["path"]
+                #except KeyError: pass
             
                 try: r.method = request["method"]
                 except KeyError: pass
