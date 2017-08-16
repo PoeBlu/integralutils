@@ -131,7 +131,16 @@ class VxstreamParser(BaseSandboxParser):
 
             # If we picked a best screenshot, return that as the path.
             if best_screenshot_path:
-                return best_screenshot_path
+                # Rename the screenshot so it doesn't get overwritten on wiki pages
+                # in the event one with the same name is uploaded to the page.
+                new_name = "screen_" + self.md5 + ".png"
+                new_path = os.path.join(os.path.dirname(best_screenshot_path), new_name)
+                try:
+                    os.rename(best_screenshot_path, new_path)
+                    self.logger.debug("Picked best screenshot '{}' and moved it to '{}'".format(os.path.basename(best_screenshot_path), new_name))
+                    return new_path
+                except:
+                    return None
 
     def download_screenshot(self):
         if self.screenshot_repository:
