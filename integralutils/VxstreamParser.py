@@ -109,18 +109,29 @@ class VxstreamParser(BaseSandboxParser):
             self.logger.debug("Picking the best screenshot using new method.")
 
             # Our VxStream VMs use the standard Windows background image, which
-            # is quite large. In most cases, we want the smallest filesize image.
-            best_screenshot = {"path": "", "size": 99999999}
+            # is quite large. In most cases, we want the medium filesize image.
+            screenshots = {}
             for screenshot in potential_screenshots:
                 path = os.path.join(self.report_directory, screenshot)
                 size = int(os.path.getsize(path))
-                if size < best_screenshot["size"]:
-                    best_screenshot["path"] = path
-                    best_screenshot["size"] = size
+                screenshots[path] = size
+
+            # Sort the screenshots by their size.
+            screenshots = sorted(screenshots.items(), key=lambda x: x[1])
+
+            # Find the middle index value.
+            num_screenshots = len(screenshots)
+            if num_screenshots % 2 == 0:
+                best_screenshot_index = int(num_screenshots / 2)
+            else:
+                best_screenshot_index = int((num_screenshots / 2) - 0.5)
+
+            # Grab the best screenshot.
+            best_screenshot_path = screenshots[best_screenshot_index][0]
 
             # If we picked a best screenshot, return that as the path.
-            if best_screenshot["path"]:
-                return best_screenshot["path"]
+            if best_screenshot_path:
+                return best_screenshot_path
 
     def download_screenshot(self):
         if self.screenshot_repository:
