@@ -422,6 +422,8 @@ class VxstreamParser(BaseSandboxParser):
                         mutex_list.add(mutex["db"])
                 except TypeError:
                     pass
+                except KeyError:
+                    pass
                     
         return sorted(list(mutex_list))
     
