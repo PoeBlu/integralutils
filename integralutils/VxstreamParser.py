@@ -342,15 +342,16 @@ class VxstreamParser(BaseSandboxParser):
                 try: h.location = host["country"] + " (ASN: " + str(host["asn"]) + " - " + host["as_owner"] + ")"
                 except KeyError: pass
 
-                try:
-                    associated_domains = host["associated_domains"]["domain"]
-                    if isinstance(associated_domains, dict):
-                        associated_domains = [associated_domains]
-                    
-                    for domain in associated_domains:
-                        h.add_associated_domain(domain["db"], domain["resolved"][:10])
-                except KeyError: pass
-                except TypeError: pass
+                # Associated domains are almost never good indicators. Very noisy.
+                #try:
+                #    associated_domains = host["associated_domains"]["domain"]
+                #    if isinstance(associated_domains, dict):
+                #        associated_domains = [associated_domains]
+                #    
+                #    for domain in associated_domains:
+                #        h.add_associated_domain(domain["db"], domain["resolved"][:10])
+                #except KeyError: pass
+                #except TypeError: pass
                 
                 # Only add the host if its IP was succesfully parsed.
                 if h.ipv4:

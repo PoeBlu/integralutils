@@ -286,10 +286,10 @@ class SpenderCuckooParser(BaseSandboxParser):
                 try: h.location = host["country_name"]
                 except KeyError: pass
 
-                try:
-                    if host["hostname"]:
-                        h.add_associated_domain(host["hostname"])
-                except KeyError: pass
+                #try:
+                #    if host["hostname"]:
+                #        h.add_associated_domain(host["hostname"])
+                #except KeyError: pass
                 
                 # Only add the host if its IP was succesfully parsed.
                 if h.ipv4:
