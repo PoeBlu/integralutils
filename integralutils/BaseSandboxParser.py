@@ -287,6 +287,7 @@ class BaseSandboxParser():
                 try:
                     ind = Indicator.Indicator(host.ipv4, "Address - ipv4-addr")
                     ind.add_tags("contacted_host")
+                    ind.make_benign()
                     if self.whitelister.is_tor_node(host.ipv4):
                         ind.add_tags("tor_node")
                     if host.protocol and host.port:
@@ -466,13 +467,13 @@ class BaseSandboxParser():
             self.iocs.append(ind)
 
         # Make Indicators for any mutexes.
-        for mutex in self.mutexes:
-            try:
-                ind = Indicator.Indicator(mutex, "Windows - Mutex")
-                ind.add_tags("mutex_created")
-                self.iocs.append(ind)
-            except ValueError:
-                pass
+        #for mutex in self.mutexes:
+        #    try:
+        #        ind = Indicator.Indicator(mutex, "Windows - Mutex")
+        #        ind.add_tags("mutex_created")
+        #        self.iocs.append(ind)
+        #    except ValueError:
+        #        pass
                 
         # Run the IOCs through the whitelists if requested.
         if check_whitelist:
