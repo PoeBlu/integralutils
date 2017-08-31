@@ -299,15 +299,15 @@ class BaseSandboxParser():
                     pass
 
                 # Make Indicators for any associated domains.
-                for domain in host.associated_domains:
-                    if RegexHelpers.is_domain(domain["domain"]):
-                        try:
-                            ind = Indicator.Indicator(domain["domain"], "URI - Domain Name")
-                            ind.add_tags("associated_to_" + host.ipv4)
-                            ind.add_relationships(host.ipv4)
-                            self.iocs.append(ind)
-                        except ValueError:
-                            pass
+                #for domain in host.associated_domains:
+                #    if RegexHelpers.is_domain(domain["domain"]):
+                #        try:
+                #            ind = Indicator.Indicator(domain["domain"], "URI - Domain Name")
+                #            ind.add_tags("associated_to_" + host.ipv4)
+                #            ind.add_relationships(host.ipv4)
+                #            self.iocs.append(ind)
+                #        except ValueError:
+                #            pass
 
         # Make Indicators for any DNS requests.
         for request in self.dns_requests:
@@ -323,6 +323,7 @@ class BaseSandboxParser():
 
                         try:
                             ip_ind = Indicator.Indicator(request.answer, "Address - ipv4-addr")
+                            ip_ind.make_benign()
                             ip_ind.add_tags(["dns_response", request.request])
                             self.iocs.append(ip_ind)
                         except ValueError:
