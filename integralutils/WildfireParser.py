@@ -318,7 +318,7 @@ class WildfireParser(BaseSandboxParser):
         for report in self.reports_json:
             try:
                 process_tree = report["process_tree"]["process"]
-                process_tree_size = sys.getsizeof(process_tree)
+                process_tree_size = len(str(process_tree))
                 if process_tree_size > process_tree_to_use_size:
                     process_tree_to_use = process_tree
                     process_tree_to_use_size = process_tree_size
