@@ -222,7 +222,7 @@ class CuckooParser(BaseSandboxParser):
                 # Only add the request if the host was successfully parsed.
                 if r.request:
                     dns_requests.append(r)
-                    
+
         return dns_requests
 
     def parse_dropped_files(self):

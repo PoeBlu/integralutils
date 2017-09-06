@@ -677,10 +677,11 @@ class BaseSandboxParser():
         try:
             for request in dns_requests:
                 if isinstance(request, DnsRequest):
-                    if RegexHelpers.is_ip(request.answer):
-                        self._dns_requests.append(request)
-                    elif RegexHelpers.is_domain(request.answer):
-                        self._dns_requests.append(request)
+                    #if RegexHelpers.is_ip(request.answer):
+                    #    self._dns_requests.append(request)
+                    #elif RegexHelpers.is_domain(request.answer):
+                    #    self._dns_requests.append(request)
+                    self._dns_requests.append(request)
         except TypeError:
             pass
         
@@ -958,12 +959,15 @@ def dedup_reports(config, report_list, whitelister=None):
             if request not in dedup_report.dns_requests:
                 if whitelister:
                     if not whitelister.is_domain_whitelisted(request.request):
-                        if RegexHelpers.is_ip(request.answer):
-                            if not whitelister.is_ip_whitelisted(request.answer):
-                                dedup_report.dns_requests.append(request)
+                        if request.answer:
+                            if RegexHelpers.is_ip(request.answer):
+                                if not whitelister.is_ip_whitelisted(request.answer):
+                                    dedup_report.dns_requests.append(request)
+                            else:
+                                if not whitelister.is_domain_whitelisted(request.answer):
+                                    dedup_report.dns_requests.append(request)
                         else:
-                            if not whitelister.is_domain_whitelisted(request.answer):
-                                dedup_report.dns_requests.append(request)
+                            dedup_report.dns_requests.append(request)
                 else:
                     dedup_report.dns_requests.append(request)
 
