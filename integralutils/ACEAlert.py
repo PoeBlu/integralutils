@@ -67,7 +67,10 @@ class ACEAlert(BaseAlert):
             self.email = potential_emails[0]
         elif len(potential_emails) > 1:
             # Probably should have a more robust method of picking e-mails.
-            self.email = next(email for email in potential_emails if email.body or email.html)
+            try:
+                self.email = next(email for email in potential_emails if email.body or email.html or email.subject)
+            except:
+                pass
         
         #####################
         ##                 ##
