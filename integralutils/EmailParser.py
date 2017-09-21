@@ -135,6 +135,18 @@ class EmailParser():
                         # Make the new e-mail object.
                         self._email_obj = email.message_from_string(part_text)
 
+        # Remove any 'bad' headers that we don't care about.
+        bad_headers = self.config.get('EmailParser', 'bad_headers', fallback=None)
+        if bad_headers:
+            try:
+                bad_headers = bad_headers.split(',')
+
+                for header in self._email_obj.keys():
+                    if any(bad_header in header for bad_header in bad_headers):
+                        self._email_obj.__delitem__(header)
+            except:
+                self.logger.warning('Unable to delete header: {}'.format(header))
+
         # Parse the e-mail object for its content.
         parsed_email = self._parse_content()
         
