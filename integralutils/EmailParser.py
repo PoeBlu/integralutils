@@ -308,8 +308,8 @@ class EmailParser():
             self.decoded_subject = ""
 
         # Make an Indicator for each to address.
-        #self.to_list = [x[1] for x in self._get_address_list("to")]
-        #self.to_string = ", ".join(self.to_list).replace("\t", " ")
+        self.to_list = [x[1] for x in self._get_address_list("to")]
+        self.to_string = ", ".join(self.to_list).replace("\t", " ")
         #for address in self.to_list:
         #    try:
         #        ind = Indicator.Indicator(address, "Email - Address")
@@ -321,8 +321,8 @@ class EmailParser():
         #        pass
             
         # Make an Indicator for each CC address.
-        #self.cc_list = [x[1] for x in self._get_address_list("cc")]
-        #self.cc_string = ", ".join(self.cc_list).replace("\t", " ")
+        self.cc_list = [x[1] for x in self._get_address_list("cc")]
+        self.cc_string = ", ".join(self.cc_list).replace("\t", " ")
         #for address in self.cc_list:
         #    try:
         #        ind = Indicator.Indicator(address, "Email - Address")
@@ -334,8 +334,8 @@ class EmailParser():
         #        pass
         
         # Make an Indicator for each BCC address.
-        #self.bcc_list = [x[1] for x in self._get_address_list("bcc")]
-        #self.bcc_string = ", ".join(self.bcc_list).replace("\t", " ")
+        self.bcc_list = [x[1] for x in self._get_address_list("bcc")]
+        self.bcc_string = ", ".join(self.bcc_list).replace("\t", " ")
         #for address in self.bcc_list:
         #    try:
         #        ind = Indicator.Indicator(address, "Email - Address")
