@@ -359,7 +359,8 @@ class BaseSandboxParser():
             if RegexHelpers.is_md5(file.md5):
                 try:
                     ind = Indicator.Indicator(file.md5, "Hash - MD5")
-                    ind.add_tags([file.filename, "dropped_file"])
+                    #ind.add_tags([file.filename, "dropped_file")
+                    ind.add_tags("dropped_file")
                     ind.add_relationships([file.filename, file.path, file.sha1, file.sha256])
                     self.iocs.append(ind)
                 except ValueError:
@@ -369,7 +370,8 @@ class BaseSandboxParser():
             if RegexHelpers.is_sha1(file.sha1):
                 try:
                     ind = Indicator.Indicator(file.sha1, "Hash - SHA1")
-                    ind.add_tags([file.filename, "dropped_file"])
+                    #ind.add_tags([file.filename, "dropped_file"])
+                    ind.add_tags("dropped_file")
                     ind.add_relationships([file.filename, file.path, file.md5, file.sha256])
                     self.iocs.append(ind)
                 except ValueError:
@@ -379,7 +381,8 @@ class BaseSandboxParser():
             if RegexHelpers.is_sha256(file.sha256):
                 try:
                     ind = Indicator.Indicator(file.sha256, "Hash - SHA256")
-                    ind.add_tags([file.filename, "dropped_file"])
+                    #ind.add_tags([file.filename, "dropped_file"])
+                    ind.add_tags("dropped_file")
                     ind.add_relationships([file.filename, file.path, file.md5, file.sha1])
                     self.iocs.append(ind)
                 except ValueError:
