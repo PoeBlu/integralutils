@@ -5,6 +5,7 @@ import sys
 import zipfile
 import tempfile
 import shutil
+import base64
 from urllib.parse import urlparse
 
 # Make sure the current directory is in the
@@ -56,6 +57,7 @@ class CuckooParser(BaseSandboxParser):
             self.http_requests = self.parse_http_requests()
             self.dns_requests = self.parse_dns_requests()
             self.process_tree = self.parse_process_tree()
+            self.decoded_process_tree = self.decode_process_tree()
             self.process_tree_urls = self.parse_process_tree_urls()
             self.mutexes = self.parse_mutexes()
             self.resolved_apis = self.parse_resolved_apis()
@@ -307,8 +309,10 @@ class CuckooParser(BaseSandboxParser):
     
     def parse_process_tree_urls(self):
         self.logger.debug("Looking for URLs in process tree")
-        return RegexHelpers.find_urls(str(self.parse_process_tree()))
-    
+        urls = RegexHelpers.find_urls(str(self.parse_process_tree()))
+        urls += RegexHelpers.find_urls(self.decode_process_tree())
+        return urls
+
     def parse_process_tree(self):
         self.logger.debug("Parsing process tree")
 
@@ -328,6 +332,21 @@ class CuckooParser(BaseSandboxParser):
             return process_list
                 
         return walk_tree(process_json=self.parse(self.report, "behavior", "processtree"))
+
+    def decode_process_tree(self):
+        process_tree = str(self.parse_process_tree())
+        decoded_process_tree = process_tree
+        for chunk in process_tree.split():
+            try:
+                decoded_chunk = base64.b64decode(chunk).decode('utf-8')
+                decoded_process_tree = decoded_process_tree.replace(chunk, decoded_chunk)
+            except:
+                pass
+
+        if decoded_process_tree != process_tree:
+            return decoded_process_tree
+        else:
+            return ''
 
     def parse_mutexes(self):
         self.logger.debug("Parsing mutexes")

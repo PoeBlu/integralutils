@@ -3,6 +3,7 @@ import sys
 import requests
 import logging
 import sys
+import base64
 
 # Make sure the current directory is in the
 # path so that we can run this from anywhere.
@@ -50,6 +51,7 @@ class WildfireParser(BaseSandboxParser):
             self.http_requests = self.parse_http_requests()
             self.dns_requests = self.parse_dns_requests()
             self.process_tree = self.parse_process_tree()
+            self.decoded_process_tree = self.decode_process_tree()
             self.process_tree_urls = self.parse_process_tree_urls()
             self.mutexes = self.parse_mutexes()
             #self.json_urls = self.parse_json_urls()
@@ -284,8 +286,10 @@ class WildfireParser(BaseSandboxParser):
         return list(contacted_hosts)
     
     def parse_process_tree_urls(self):
-        self.logger.debug("Looking for URLs in the process tree")
-        return RegexHelpers.find_urls(str(self.parse_process_tree()))
+        self.logger.debug("Looking for URLs in process tree")
+        urls = RegexHelpers.find_urls(str(self.parse_process_tree()))
+        urls += RegexHelpers.find_urls(self.decode_process_tree())
+        return urls
     
     def parse_process_tree(self):
         self.logger.debug("Parsing process tree")
@@ -328,6 +332,21 @@ class WildfireParser(BaseSandboxParser):
                 pass
 
         return walk_tree(process_json=process_tree_to_use)
+
+    def decode_process_tree(self):
+        process_tree = str(self.parse_process_tree())
+        decoded_process_tree = process_tree
+        for chunk in process_tree.split():
+            try:
+                decoded_chunk = base64.b64decode(chunk).decode('utf-8')
+                decoded_process_tree = decoded_process_tree.replace(chunk, decoded_chunk)
+            except:
+                pass
+
+        if decoded_process_tree != process_tree:
+            return decoded_process_tree
+        else:
+            return ''
     
     def parse_mutexes(self):
         self.logger.debug("Parsing mutexes")

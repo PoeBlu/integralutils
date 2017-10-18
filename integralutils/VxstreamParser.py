@@ -2,6 +2,7 @@ import os
 import requests
 import logging
 import sys
+import base64
 
 # Make sure the current directory is in the
 # path so that we can run this from anywhere.
@@ -68,6 +69,7 @@ class VxstreamParser(BaseSandboxParser):
                         http_request.host = dns_request.request
             
             self.process_tree = self.parse_process_tree()
+            self.decoded_process_tree = self.decode_process_tree()
             self.process_tree_urls = self.parse_process_tree_urls()
             self.memory_urls = self.parse_memory_urls()
             self.mutexes = self.parse_mutexes()
@@ -361,7 +363,9 @@ class VxstreamParser(BaseSandboxParser):
     
     def parse_process_tree_urls(self):
         self.logger.debug("Looking for URLs in process tree")
-        return RegexHelpers.find_urls(str(self.parse_process_tree()))
+        urls = RegexHelpers.find_urls(str(self.parse_process_tree()))
+        urls += RegexHelpers.find_urls(self.decode_process_tree())
+        return urls
     
     def parse_process_tree(self):
         self.logger.debug("Parsing process tree")
@@ -381,6 +385,21 @@ class VxstreamParser(BaseSandboxParser):
                 process_list.add_process(new_process)
                     
         return process_list
+
+    def decode_process_tree(self):
+        process_tree = str(self.parse_process_tree())
+        decoded_process_tree = process_tree
+        for chunk in process_tree.split():
+            try:
+                decoded_chunk = base64.b64decode(chunk).decode('utf-8')
+                decoded_process_tree = decoded_process_tree.replace(chunk, decoded_chunk)
+            except:
+                pass
+
+        if decoded_process_tree != process_tree:
+            return decoded_process_tree
+        else:
+            return ''
 
     def parse_memory_urls(self):
         self.logger.debug("Parsing memory URLs")

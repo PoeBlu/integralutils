@@ -102,6 +102,7 @@ class BaseSandboxParser():
         self.http_requests        = []
         self.dns_requests         = []
         self.process_tree         = []
+        self.decoded_process_tree = ''
         self.process_tree_urls    = []
         self.memory_urls          = []
         self.strings              = []
@@ -888,6 +889,7 @@ def dedup_reports(config, report_list, whitelister=None):
     dedup_report = BaseSandboxParser(config, whitelister=whitelister)
     dedup_report.filename = "Unknown Filename"
     dedup_report.process_tree_list = []
+    dedup_report.decoded_process_tree_list = []
 
     for report in report_list:
         # Check if the filename is set and it is not WildFire's "sample".
@@ -1027,6 +1029,7 @@ def dedup_reports(config, report_list, whitelister=None):
 
         # Finally, just add the process tree as-is.
         dedup_report.process_tree_list.append(str(report.process_tree))
+        dedup_report.decoded_process_tree_list.append(report.decoded_process_tree)
 
     return dedup_report
     

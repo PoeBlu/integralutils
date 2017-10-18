@@ -888,6 +888,9 @@ class ConfluenceEventPage(BaseConfluencePage):
                     pre["style"] = "border:1px solid gray;padding:5px;"
                     pre.string = ""
                     
+                    for tree in dedup_report.decoded_process_tree_list:
+                        pre.string += tree + "\n"
+
                     for tree in dedup_report.process_tree_list:
                         pre.string += tree + "\n"
 
