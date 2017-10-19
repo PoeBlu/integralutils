@@ -459,10 +459,32 @@ class ConfluenceEventPage(BaseConfluencePage):
 
             # Continue the section if we were given an email.
             for url in url_list:
-
                 pre.string += url + "\n"
 
             self.update_section(div, old_section_id="url_analysis")
+
+    def update_whois_analysis(self, whois_analysis):
+        self.logger.debug("Updating URL Analysis section.")
+
+        # Create the parent div tag.
+        div = self.new_tag("div")
+
+        if whois_analysis:
+            # Make the section header.
+            header = self.new_tag("h2", parent=div)
+            header.string = "WHOIS Analysis"
+
+            # Make the pre tag to hold the URLs.
+            pre = self.new_tag("pre", parent=div)
+            pre["style"] = "border:1px solid gray;padding:5px;"
+            pre.string = ""
+
+            # Continue the section if we were given an email.
+            for domain in whois_analysis:
+                if whois_analysis[domain]['raw']:
+                    pre.string += whois_analysis[domain]['raw'] + "\n\n"
+
+            self.update_section(div, old_section_id="whois_analysis")
     
     def update_sandbox_analysis(self, sandbox_dict):
         self.logger.debug("Updating Sandbox Analysis section.")
