@@ -389,12 +389,27 @@ class VxstreamParser(BaseSandboxParser):
     def decode_process_tree(self):
         process_tree = str(self.parse_process_tree())
         decoded_process_tree = process_tree
+        # Try to decode base64 chunks.
         for chunk in process_tree.split():
             try:
                 decoded_chunk = base64.b64decode(chunk).decode('utf-8')
+                if '\x00' in decoded_chunk:
+                    decoded_chunk = base64.b64decode(chunk).decode('utf-16')
                 decoded_process_tree = decoded_process_tree.replace(chunk, decoded_chunk)
             except:
                 pass
+
+        # Try to decode int arrays.
+        try:
+            int_array_regex = re.compile(r"\(((\s*\d+\s*,?)+)\)")
+            matches = int_array_regex.findall(decoded_process_tree)
+            for match in matches:
+                orig_int_array = match[0]
+                clean_int_array = ''.join(orig_int_array.split()).split(',')
+                chars = ''.join([chr(int(num)) for num in clean_int_array])
+                decoded_process_tree = decoded_process_tree.replace(orig_int_array, chars)
+        except:
+            pass
 
         if decoded_process_tree != process_tree:
             return decoded_process_tree
