@@ -51,6 +51,15 @@ class Whitelist():
     def __setstate__(self, d):
         self.__dict__.update(d)
 
+    def is_domain_url_shortener(self, domain):
+        if hasattr(self, "Whitelists_shortlinks"):
+            if domain in self.Whitelists_shortlinks:
+                return True
+            else:
+                return False
+        else:
+            return False
+
     def is_tor_node(self, ip):
         if hasattr(self, "Benignlists_tor_nodes"):
             if ip in self.Benignlists_tor_nodes:
