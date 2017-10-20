@@ -234,6 +234,9 @@ class ConfluenceEventPage(BaseConfluencePage):
                                 for instance in source["instances"]:
                                     references.add(instance["reference"])
                             references = sorted(list(references))
+                            if len(references) > 10:
+                                references = references[-10:]
+                                references.append('<< Truncated list of older matching references >>')
                             source_names = sorted(list(source_names))
 
                             # We only want to display the indicator if either:
