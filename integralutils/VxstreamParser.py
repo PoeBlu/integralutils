@@ -420,7 +420,7 @@ class VxstreamParser(BaseSandboxParser):
                 int_regex = re.compile(r"\d+")
                 int_array = int_regex.findall(orig_int_array)
                 chars = ''.join([chr(int(num)) for num in int_array])
-                decoded_process_tree = decoded_process_tree.replace(original_int_array, chars)
+                decoded_process_tree = decoded_process_tree.replace(orig_int_array, chars)
         except:
             pass
 
