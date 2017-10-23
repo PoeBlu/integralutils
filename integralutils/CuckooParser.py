@@ -358,6 +358,19 @@ class CuckooParser(BaseSandboxParser):
         except:
             pass
 
+        # Try to decode split+int arrays.
+        try:
+            split_int_array_regex = re.compile(r"\(\s*'((\s*\d+.)+)\s*'")
+            matches = split_int_array_regex.findall(decoded_process_tree)
+            for match in matches:
+                orig_int_array = match[0]
+                int_regex = re.compile(r"\d+")
+                int_array = int_regex.findall(orig_int_array)
+                chars = ''.join([chr(int(num)) for num in int_array])
+                decoded_process_tree = decoded_process_tree.replace(original_int_array, chars)
+        except:
+            pass
+
         if decoded_process_tree != process_tree:
             return decoded_process_tree
         else:
