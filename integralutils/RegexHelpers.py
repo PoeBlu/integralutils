@@ -155,6 +155,9 @@ def find_ip_addresses(value):
 def find_domains(value):
     return _domain.findall(value)
 
+def find_email_addresses(value):
+    return _email_address.findall(value)
+
 def is_md5(value):
     try:
         if _md5.match(value):
