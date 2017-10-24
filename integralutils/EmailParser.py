@@ -203,6 +203,16 @@ class EmailParser():
                 pass
         except IndexError:
             self.from_address = ""
+        # Make an Indicator for the from domain.
+        if self.from_address:
+            try:
+                domain = self.from_address.split('@')[1]
+                ind = Indicator.Indicator(domain, 'URI - Domain Name')
+                ind.add_tags(['phish', 'from_domain'])
+                ind.add_relationships(self.from_address)
+                self.iocs.append(ind)
+            except:
+                pass
             
         # Make an Indicator for the reply-to address.
         try:
@@ -217,6 +227,16 @@ class EmailParser():
                 pass
         except IndexError:
             self.replyto = ""
+        # Make an Indicator for the replyto domain.
+        if self.replyto:
+            try:
+                domain = self.replyto.split('@')[1]
+                ind = Indicator.Indicator(domain, 'URI - Domain Name')
+                ind.add_tags(['phish', 'replyto_domain'])
+                ind.add_relationships(self.replyto)
+                self.iocs.append(ind)
+            except:
+                pass
 
         # Make an Indicator for the X-Sender-Id address.
         try:
@@ -232,6 +252,16 @@ class EmailParser():
                 pass
         except IndexError:
             self.x_sender_id = ""
+        # Make an Indicator for the x-sender-id domain.
+        if self.x_sender_id:
+            try:
+                domain = self.x_sender_id.split('@')[1]
+                ind = Indicator.Indicator(domain, 'URI - Domain Name')
+                ind.add_tags(['phish', 'x_sender_id_domain'])
+                ind.add_relationships(self.x_sender_id)
+                self.iocs.append(ind)
+            except:
+                pass
 
         # Make an Indicator for the X-Auth-ID address.
         try:
@@ -247,6 +277,16 @@ class EmailParser():
                 pass
         except IndexError:
             self.x_auth_id = ""
+        # Make an Indicator for the x-auth-id domain.
+        if self.x_auth_id:
+            try:
+                domain = self.x_auth_id.split('@')[1]
+                ind = Indicator.Indicator(domain, 'URI - Domain Name')
+                ind.add_tags(['phish', 'x_auth_id_domain'])
+                ind.add_relationships(self.x_auth_id)
+                self.iocs.append(ind)
+            except:
+                pass
 
         # Make an Indicator for the Return-Path address.
         try:
@@ -262,6 +302,16 @@ class EmailParser():
                 pass
         except IndexError:
             self.return_path = ""
+        # Make an Indicator for the return-path domain.
+        if self.return_path:
+            try:
+                domain = self.return_path.split('@')[1]
+                ind = Indicator.Indicator(domain, 'URI - Domain Name')
+                ind.add_tags(['phish', 'return_path_domain'])
+                ind.add_relationships(self.return_path)
+                self.iocs.append(ind)
+            except:
+                pass
 
         # Make an Indicator for the X-MS-Exchange-Organization-OriginalEnvelopeRecipients address.
         try:
